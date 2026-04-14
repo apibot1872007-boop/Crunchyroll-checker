@@ -23,7 +23,7 @@ class CrunchyrollChecker:
     def __init__(self, proxies=None):
         self.proxies = proxies or []
         self.proxy_index = 0
-        self.countries = {
+        self.countries = {  # Your original countries
             "AF": "Afghanistan 🇦🇫", "AL": "Albania 🇦🇱", "DZ": "Algeria 🇩🇿",
             "AR": "Argentina 🇦🇷", "AM": "Armenia 🇦🇲", "AU": "Australia 🇦🇺",
             "AT": "Austria 🇦🇹", "AZ": "Azerbaijan 🇦🇿", "BH": "Bahrain 🇧🇭",
@@ -76,7 +76,6 @@ class CrunchyrollChecker:
             if proxy:
                 session.proxies.update(proxy)
 
-            # === Your original login code ===
             url = "https://beta-api.crunchyroll.com/auth/v1/token"
             headers = {
                 'host': 'beta-api.crunchyroll.com',
@@ -202,14 +201,14 @@ CRACKED BY: @Baron
 async def start(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return
-    await message.answer("✅ Bot ready.\nSend /proxies to load proxies\nUse /check for combos (small batches only)")
+    await message.answer("✅ Bot ready.\n\nSend /proxies to load proxies\nUse /check for combos (small batches only)")
 
 
 @dp.message(Command("proxies"))
 async def proxies_cmd(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return
-    await message.answer("📤 Send proxy file or paste proxies (one per line)")
+    await message.answer("📤 Send your proxy file (.txt) or paste proxies (one per line)")
 
 
 @dp.message(F.document | F.text)
@@ -220,7 +219,7 @@ async def handle(message: types.Message):
     global checker
 
     # Proxy loading
-    if message.document or message.text.startswith("/proxies"):
+    if message.document or (message.text and message.text.startswith("/proxies")):
         if message.document:
             file = await bot.get_file(message.document.file_id)
             content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
