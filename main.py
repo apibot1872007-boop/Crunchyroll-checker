@@ -347,4 +347,8 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, handle_message))
 
     print("🤖 Bot Started | Made by @Sudhakaran12")
-    app.run_pol
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
