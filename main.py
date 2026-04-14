@@ -235,7 +235,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - Very safe (1 at a time)
+    # Combo checking - Extremely safe (1 at a time + longer delay)
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -278,7 +278,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(2.0 + random.uniform(0.3, 0.8))  # Safe delay
+            await asyncio.sleep(2.5 + random.uniform(0.5, 1.0))  # Longer safe delay
 
         except:
             continue
