@@ -1,15 +1,19 @@
 import os
+import asyncio
 import uuid
 import random
 import aiohttp
-import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
 from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-AUTHORIZED_USERS = []  # Allow everyone
+if not BOT_TOKEN:
+    print("Error: BOT_TOKEN is not set!")
+    exit(1)
+
+print(f"BOT_TOKEN: {BOT_TOKEN}")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -212,3 +216,13 @@ CHECKED BY: @Cr_chker001_bot
 
     else:
         await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
+
+
+async def main():
+    print("Bot is starting...")
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+    print("Starting bot...")
+    asyncio.run(main())
