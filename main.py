@@ -222,7 +222,6 @@ async def proxies_cmd(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
-    # Proxy loading
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
@@ -257,12 +256,16 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
+    if len(lines) > 100:
+        await message.answer(f"⚠️ Large file detected ({len(lines)} combos). Checking in fast mode...")
+    else:
+        await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
 
     for line in lines:
         try:
             email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+            # Run blocking check in background thread so bot doesn't freeze
+            result = await asyncio.to_thread(checker.check, email.strip(), password.strip())
 
             stats['checked'] += 1
             if result['status'] == 'PREMIUM':
@@ -274,7 +277,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))
+            await asyncio.sleep(0.8 + random.uniform(0.1, 0.4))  # Fast but stable
 
         except:
             continue
@@ -289,7 +292,7 @@ async def main():
         try:
             await dp.start_polling(bot, skip_updates=True)
         except Exception as e:
-            print(f"Polling stopped: {e}. Restarting in 5 seconds...")
+            print(f"Polling error: {e}. Restarting...")
             await asyncio.sleep(5)
 
 
