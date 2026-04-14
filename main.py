@@ -23,7 +23,7 @@ class CrunchyrollChecker:
     def __init__(self, proxies=None):
         self.proxies = proxies or []
         self.proxy_index = 0
-        self.countries = {  # Your original countries
+        self.countries = {
             "AF": "Afghanistan 🇦🇫", "AL": "Albania 🇦🇱", "DZ": "Algeria 🇩🇿",
             "AR": "Argentina 🇦🇷", "AM": "Armenia 🇦🇲", "AU": "Australia 🇦🇺",
             "AT": "Austria 🇦🇹", "AZ": "Azerbaijan 🇦🇿", "BH": "Bahrain 🇧🇭",
@@ -69,6 +69,7 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
+        # Your original check logic (kept intact)
         try:
             device_id = str(uuid.uuid4())
             session = requests.Session()
@@ -255,7 +256,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(6.0 + random.uniform(1.0, 3.0))
+            await asyncio.sleep(7.0 + random.uniform(1.0, 3.0))
 
         except:
             continue
