@@ -202,13 +202,15 @@ CHECKED BY: @Sudhakaran12
 
 
 def clean_combo(line):
-    """Take ONLY email:password, ignore all messy text"""
+    """Strictly take only email:password, ignore all messy text"""
     line = line.strip()
     if ':' not in line:
         return None
     email, password = line.split(':', 1)
     password = password.split()[0].strip()
-    return f"{email.strip()}:{password}"
+    if email and password:
+        return f"{email.strip()}:{password}"
+    return None
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
