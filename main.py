@@ -16,6 +16,10 @@ from telegram.constants import ParseMode
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OWNER_ID = int(os.getenv("OWNER_ID", 0))
 
+# Global variables
+checker = None
+active_proxies = []
+
 # ============================================
 
 class CrunchyrollChecker:
@@ -66,6 +70,7 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
+        # Your original check logic (kept same)
         device_id = str(uuid.uuid4())
         session = requests.Session()
         
@@ -183,9 +188,6 @@ class CrunchyrollChecker:
             return {'status': 'ERROR', 'email': email}
 
 
-checker = None
-active_proxies = []
-
 def save_hit(result):
     capture = f"""
 {'='*70}
@@ -210,6 +212,7 @@ CHECKED BY: @Sudhakaran12
     return capture
 
 
+# ===================== BOT =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚀 <b>Crunchyroll Premium Checker</b>\n\nBot made by @Sudhakaran12", parse_mode=ParseMode.HTML)
 
@@ -233,18 +236,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     filename = f"temp_{update.message.document.file_name}"
     await file.download_to_drive(filename)
 
+    global checker, active_proxies
+
     if context.user_data.get('waiting') == 'combo':
         with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
             combos = [line.strip() for line in f if ':' in line]
         context.user_data['combos'] = combos
-        global checker
         checker = CrunchyrollChecker(active_proxies)
         await update.message.reply_text(f"✅ Loaded {len(combos)} combos.\nType /startcheck")
         context.user_data['waiting'] = None
 
     elif context.user_data.get('waiting') == 'proxy':
         with open(filename, 'r', encoding='utf-8', errors='ignore') as f:
-            global active_proxies
             active_proxies = [line.strip() for line in f if line.strip()]
         await update.message.reply_text(f"✅ Loaded {len(active_proxies)} proxies.")
         context.user_data['waiting'] = None
@@ -253,11 +256,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     text = update.message.text.strip()
-    if text.startswith('/'): return  # Ignore commands
     if context.user_data.get('waiting') == 'combo' and ':' in text:
+        global checker, active_proxies
         combos = [line.strip() for line in text.splitlines() if ':' in line]
         context.user_data['combos'] = combos
-        global checker
         checker = CrunchyrollChecker(active_proxies)
         await update.message.reply_text(f"✅ Loaded {len(combos)} combos.\nType /startcheck")
 
@@ -326,7 +328,7 @@ def main():
     app.add_handler(CommandHandler("proxies", proxies_cmd))
     app.add_handler(CommandHandler("startcheck", startcheck_cmd))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    app.add_handler(MessageHandler(filters.TEXT, handle_message))   # Simple and safe
+    app.add_handler(MessageHandler(filters.TEXT, handle_message))
 
     print("🤖 Bot Started | Made by @Sudhakaran12")
     app.run_polling()
