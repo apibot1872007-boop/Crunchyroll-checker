@@ -9,7 +9,7 @@ from aiogram.types import FSInputFile
 from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-AUTHORIZED_USERS = [int(x.strip()) for x in os.getenv("AUTHORIZED_USERS", "").split(",") if x.strip()]
+AUTHORIZED_USERS = []  # Empty = allow everyone (as per your test request)
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -199,23 +199,16 @@ CHECKED BY: @Cr_chker001_bot
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS and AUTHORIZED_USERS:  # allow everyone if no authorized list
-        return
     await message.answer("✅ Bot ready.\n\nSend /proxies to load proxies\nUse /check for combos (small batches only)")
 
 
 @dp.message(Command("proxies"))
 async def proxies_cmd(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS and AUTHORIZED_USERS:
-        return
     await message.answer("📤 Send your proxy file (.txt) or paste proxies (one per line)")
 
 
 @dp.message(F.document | F.text)
 async def handle(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS and AUTHORIZED_USERS:
-        return
-
     global checker
 
     # Proxy loading
