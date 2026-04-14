@@ -199,7 +199,18 @@ CHECKED BY: @Cr_chker001_bot
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    await message.answer("Crunchyroll premium checker\n\nBot made by @Sudhakaran12")
+    await message.answer(
+        "Crunchyroll premium checker\n\n"
+        "Bot made by @Sudhakaran12\n\n"
+        "📌 Features:\n"
+        "• Upload Combos.txt file (email:password format)\n"
+        "• Or paste combos directly\n"
+        "• Use /check to check accounts\n"
+        "• /proxies to load proxy file\n"
+        "• Fast mode with proxy rotation\n"
+        "• Premium hits saved to hits.txt with full details\n"
+        "• Extra text in combo lines is automatically ignored"
+    )
 
 
 @dp.message(Command("proxies"))
