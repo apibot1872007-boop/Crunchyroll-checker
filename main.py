@@ -253,6 +253,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID: return
     text = update.message.text.strip()
+    if text.startswith('/'): return  # Ignore commands
     if context.user_data.get('waiting') == 'combo' and ':' in text:
         combos = [line.strip() for line in text.splitlines() if ':' in line]
         context.user_data['combos'] = combos
@@ -325,11 +326,7 @@ def main():
     app.add_handler(CommandHandler("proxies", proxies_cmd))
     app.add_handler(CommandHandler("startcheck", startcheck_cmd))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    
-    # FIXED - No tilde on same line
-    text_filter = filters.TEXT
-    text_filter = text_filter & \~filters.COMMAND
-    app.add_handler(MessageHandler(text_filter, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT, handle_message))   # Simple and safe
 
     print("🤖 Bot Started | Made by @Sudhakaran12")
     app.run_polling()
