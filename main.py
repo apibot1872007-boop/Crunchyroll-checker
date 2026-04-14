@@ -9,7 +9,7 @@ from aiogram.types import FSInputFile
 from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-AUTHORIZED_USERS = []  # Allow everyone for testing
+AUTHORIZED_USERS = []  # Allow everyone
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -23,7 +23,7 @@ class CrunchyrollChecker:
     def __init__(self, proxies=None):
         self.proxies = proxies or []
         self.proxy_index = 0
-        self.countries = {  # Your original countries
+        self.countries = {
             "AF": "Afghanistan 🇦🇫", "AL": "Albania 🇦🇱", "DZ": "Algeria 🇩🇿",
             "AR": "Argentina 🇦🇷", "AM": "Armenia 🇦🇲", "AU": "Australia 🇦🇺",
             "AT": "Austria 🇦🇹", "AZ": "Azerbaijan 🇦🇿", "BH": "Bahrain 🇧🇭",
@@ -69,7 +69,6 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
-        # Your original check logic (unchanged)
         try:
             device_id = str(uuid.uuid4())
             session = requests.Session()
@@ -225,12 +224,23 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - fixed multi-check
+    # Combo checking - FIXED: Extract only email:password part
     content = message.text.replace("/check", "").strip()
-    lines = [line.strip() for line in content.splitlines() if ":" in line and "@" in line]
+    lines = []
+
+    for raw_line in content.splitlines():
+        raw_line = raw_line.strip()
+        if not raw_line:
+            continue
+        # Extract only the email:password part (ignore everything after the first :password)
+        if ':' in raw_line:
+            # Take only the first email:password occurrence
+            parts = raw_line.split(':', 1)
+            if len(parts) == 2 and '@' in parts[0]:
+                lines.append(parts[0].strip() + ':' + parts[1].split()[0].strip())  # take only until first space after password
 
     if not lines:
-        return await message.answer("No valid combos found.")
+        return await message.answer("No valid email:password found.")
 
     await message.answer(f"🚀 Checking {len(lines)} combos... (slow mode)")
 
