@@ -8,7 +8,6 @@ from aiogram.filters import Command
 from aiogram.types import FSInputFile
 from aiogram import F
 
-# ================== CONFIG ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 AUTHORIZED_USERS = [int(x.strip()) for x in os.getenv("AUTHORIZED_USERS", "").split(",") if x.strip()]
 
@@ -99,7 +98,7 @@ Country : {result['country']}
 async def start(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return
-    await message.answer("✅ Bot is ready.\nSend /check + combo or upload file.")
+    await message.answer("✅ Bot ready.\nUse /check for single combo or upload file (small batches recommended).")
 
 
 @dp.message(F.document | F.text)
@@ -120,15 +119,15 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid combos found.")
 
-    # Load proxies
+    # Proxy loading
     if "@" not in "".join(lines[:5]):
         global proxies
-        proxies = lines
+        proxies = [p for p in lines if p]
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies.")
 
-    # Check combos
-    await message.answer(f"🚀 Starting check on {len(lines)} combos... (with delay)")
+    # Check combos slowly
+    await message.answer(f"🚀 Starting check on {len(lines)} combos... (very slow mode)")
 
     for line in lines:
         try:
@@ -145,7 +144,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(2.5)   # Delay to avoid rate limit
+            await asyncio.sleep(3.5)  # Strong delay to reduce rate limiting
 
         except:
             continue
@@ -154,7 +153,7 @@ async def handle(message: types.Message):
 async def main():
     global checker
     checker = CrunchyrollChecker(proxies)
-    print("✅ Bot started successfully!")
+    print("✅ Bot started")
     await dp.start_polling(bot)
 
 
