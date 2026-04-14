@@ -217,10 +217,19 @@ CHECKED BY: @Cr_chker001_bot
     else:
         await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
 
+async def start_polling_with_retry():
+    try:
+        print("Starting bot...")
+        await dp.start_polling(bot)
+    except Exception as e:
+        print(f"Error: {e}. Retrying in 10 seconds...")
+        await asyncio.sleep(10)
+        await start_polling_with_retry()
+
 
 async def main():
     print("Bot is starting...")
-    await dp.start_polling(bot)
+    await start_polling_with_retry()
 
 
 if __name__ == "__main__":
