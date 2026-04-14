@@ -211,8 +211,8 @@ async def proxies_cmd(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
-    # Proxy loading
-    if message.document or (message.text and message.text.startswith("/proxies")):
+    # Proxy loading - ONLY when /proxies command is used
+    if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
             content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -224,13 +224,14 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking
+    # Combo checking - for normal text or any document upload (combos.txt)
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
         content = message.text.replace("/check", "").strip()
 
+    # Extract ONLY email:password (ignore all other text/characters)
     lines = []
     for raw in content.splitlines():
         raw = raw.strip()
