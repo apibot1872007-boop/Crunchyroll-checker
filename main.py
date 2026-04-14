@@ -235,7 +235,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - Very strong parsing for your messy file
+    # Combo checking - STRICT email:password only (ignores all messy text)
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -248,14 +248,14 @@ async def handle(message: types.Message):
         if not raw:
             continue
 
-        # Strong parsing for messy lines like yours
+        # Extract ONLY email:password - ignore everything else
         if ':' in raw and '@' in raw:
             try:
-                # Split on the first : to separate email
+                # Split on first :
                 email_part, rest = raw.split(':', 1)
                 email = email_part.strip()
 
-                # Take password as the next token until space or |
+                # Take only the first word after : as password (ignore | and extra text)
                 password = rest.split()[0].strip().split('|')[0].strip()
 
                 if email and password and '@' in email:
