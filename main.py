@@ -199,7 +199,7 @@ CHECKED BY: @Cr_chker001_bot
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    await message.answer("✅ Bot ready.\n\nSend /proxies to load proxies\nUse /check for combos")
+    await message.answer("Crunchyroll premium checker\n\nBot made by @Sudhakaran12")
 
 
 @dp.message(Command("proxies"))
