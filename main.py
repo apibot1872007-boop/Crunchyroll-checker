@@ -224,27 +224,20 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - FIXED for file upload
-    if message.document:
-        file = await bot.get_file(message.document.file_id)
-        content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
-    else:
-        content = message.text.replace("/check", "").strip()
-
-    # Extract only email:password (ignore extra text)
+    # Combo checking - FIXED: Extract only email:password part
+    content = message.text.replace("/check", "").strip()
     lines = []
-    for raw in content.splitlines():
-        raw = raw.strip()
-        if not raw:
+
+    for raw_line in content.splitlines():
+        raw_line = raw_line.strip()
+        if not raw_line:
             continue
-        # Find the first email:password part
-        if ':' in raw and '@' in raw:
-            # Take everything before the first space after the password
-            part = raw.split(':', 1)
-            if len(part) == 2 and '@' in part[0]:
-                email_part = part[0].strip()
-                pass_part = part[1].split()[0].strip()  # take only until first space
-                lines.append(email_part + ":" + pass_part)
+        # Extract only the email:password part (ignore everything after the first :password)
+        if ':' in raw_line:
+            # Take only the first email:password occurrence
+            parts = raw_line.split(':', 1)
+            if len(parts) == 2 and '@' in parts[0]:
+                lines.append(parts[0].strip() + ':' + parts[1].split()[0].strip())  # take only until first space after password
 
     if not lines:
         return await message.answer("No valid email:password found.")
