@@ -199,7 +199,7 @@ CHECKED BY: @Cr_chker001_bot
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    await message.answer("✅ Bot ready.\n\nSend /proxies to load proxies\nUse /check for combos (small batches only)")
+    await message.answer("✅ Bot ready.\n\nSend /proxies to load proxies\nUse /check for combos")
 
 
 @dp.message(Command("proxies"))
@@ -224,25 +224,29 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - FIXED: Extract only email:password part
-    content = message.text.replace("/check", "").strip()
-    lines = []
+    # Combo checking
+    if message.document:
+        file = await bot.get_file(message.document.file_id)
+        content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
+    else:
+        content = message.text.replace("/check", "").strip()
 
-    for raw_line in content.splitlines():
-        raw_line = raw_line.strip()
-        if not raw_line:
+    lines = []
+    for raw in content.splitlines():
+        raw = raw.strip()
+        if not raw:
             continue
-        # Extract only the email:password part (ignore everything after the first :password)
-        if ':' in raw_line:
-            # Take only the first email:password occurrence
-            parts = raw_line.split(':', 1)
-            if len(parts) == 2 and '@' in parts[0]:
-                lines.append(parts[0].strip() + ':' + parts[1].split()[0].strip())  # take only until first space after password
+        if ':' in raw and '@' in raw:
+            part = raw.split(':', 1)
+            if len(part) == 2 and '@' in part[0]:
+                email_part = part[0].strip()
+                pass_part = part[1].split()[0].strip()
+                lines.append(email_part + ":" + pass_part)
 
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    await message.answer(f"🚀 Checking {len(lines)} combos... (slow mode)")
+    await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
 
     for line in lines:
         try:
@@ -259,7 +263,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(7.0 + random.uniform(1.0, 3.0))
+            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))   # Fast limit
 
         except:
             continue
