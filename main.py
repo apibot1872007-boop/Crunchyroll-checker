@@ -202,11 +202,12 @@ CHECKED BY: @Sudhakaran12
 
 
 def clean_combo(line):
+    """STRICT: Take ONLY email:password, ignore everything else"""
     line = line.strip()
     if ':' not in line:
         return None
     email, password = line.split(':', 1)
-    password = password.split()[0].strip()
+    password = password.split()[0].strip()   # take only first word after :
     return f"{email.strip()}:{password}"
 
 
