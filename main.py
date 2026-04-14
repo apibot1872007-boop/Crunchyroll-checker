@@ -66,7 +66,6 @@ class CrunchyrollChecker:
         return {'http': f'http://{proxy}', 'https': f'http://{proxy}'}
 
     def check(self, email, password):
-        # Your original check logic (kept exactly the same)
         device_id = str(uuid.uuid4())
         session = requests.Session()
         
@@ -211,13 +210,13 @@ CHECKED BY: @Sudhakaran12
     return capture
 
 
-# ====================== BOT ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🚀 <b>Crunchyroll Premium Checker</b>\n\nBot made by @Sudhakaran12", parse_mode=ParseMode.HTML)
 
 
 async def check_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID: return await update.message.reply_text("❌ Unauthorized!")
+    if update.effective_user.id != OWNER_ID:
+        return await update.message.reply_text("❌ Unauthorized!")
     await update.message.reply_text("📤 Send combo file or paste combos")
     context.user_data['waiting'] = 'combo'
 
@@ -327,8 +326,9 @@ def main():
     app.add_handler(CommandHandler("startcheck", startcheck_cmd))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     
-    # FIXED LINE - No tilde on same line
-    text_filter = filters.TEXT & \~filters.COMMAND
+    # FIXED - No tilde on same line
+    text_filter = filters.TEXT
+    text_filter = text_filter & \~filters.COMMAND
     app.add_handler(MessageHandler(text_filter, handle_message))
 
     print("🤖 Bot Started | Made by @Sudhakaran12")
