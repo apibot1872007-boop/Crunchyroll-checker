@@ -146,8 +146,9 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
 
-    # Safe filter (no escaping issue)
-    text_filter = filters.TEXT & \~filters.COMMAND
+    # Safe filter - written in 2 lines to avoid escaping problem
+    text_filter = filters.TEXT
+    text_filter = text_filter & \~filters.COMMAND
     app.add_handler(MessageHandler(text_filter, handle_message))
 
     print("🚀 Bot Running...")
