@@ -228,7 +228,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - NEW FILE → reset checker so second txt works
+    # Combo checking
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -251,7 +251,7 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    # ←←← THIS IS THE ONLY LINE I ADDED
+    # ←←← ONLY THIS LINE WAS ADDED (fixes second file issue)
     checker = CrunchyrollChecker(proxies)
 
     await message.answer(f"🚀 Checking {len(lines)} combos...")
