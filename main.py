@@ -88,8 +88,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🔥 Crunchyroll Checker\n\n"
         "Bot made by @Sudhakaran12\n\n"
-        "Send combos or .txt file\n"
-        "Only FREE and PREMIUM shown"
+        "Send combos or .txt file"
     )
 
 
@@ -156,10 +155,17 @@ def main():
     if not TOKEN:
         print("❌ BOT_TOKEN missing")
         return
+
     app = Application.builder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
+
+    # FIXED LINE - split to avoid escaping issue
+    text_filter = filters.TEXT
+    text_filter = text_filter & \~filters.COMMAND
+    app.add_handler(MessageHandler(text_filter, handle_message))
+
     print("🚀 Bot Running...")
     app.run_polling(drop_pending_updates=True)
 
