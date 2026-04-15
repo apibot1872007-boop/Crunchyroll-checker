@@ -18,7 +18,7 @@ proxies = []
 stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0}
 
 # ================== RATE LIMITING CONTROL ==================
-RATE_DELAY = 1.8   # Default safe delay (you can change with /delay command)
+RATE_DELAY = 0.5   # Fast check as requested
 # ========================================================
 
 class CrunchyrollChecker:
