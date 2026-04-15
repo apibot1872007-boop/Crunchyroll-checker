@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import asyncio
 import uuid
@@ -5,11 +6,9 @@ import random
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import FSInputFile
 from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-AUTHORIZED_USERS = []  # Allow everyone
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -185,7 +184,7 @@ EXPIRY: {result.get('expiry', 'N/A')}
 PLAN DURATION: {result.get('plan_duration', 'N/A')}
 ACTIVE: {result.get('active', 'N/A')}
 COUNTRY: {result.get('country', 'N/A')}
-CHECKED BY: @Cr_chker001_bot
+CHECKED BY: @Sudhakaran12
 {'='*70}
 """
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
@@ -202,14 +201,8 @@ async def start(message: types.Message):
     await message.answer(
         "Crunchyroll premium checker\n\n"
         "Bot made by @Sudhakaran12\n\n"
-        "📌 Features:\n"
-        "• Upload Combos.txt file (email:password format)\n"
-        "• Or paste combos directly\n"
-        "• Use /check to check accounts\n"
-        "• /proxies to load proxy file\n"
-        "• Fast mode with proxy rotation\n"
-        "• Premium hits saved to hits.txt with full details\n"
-        "• Extra text in combo lines is automatically ignored"
+        "Send combo file or paste combos (only email:password format)\n"
+        "Extra text is automatically ignored"
     )
 
 
@@ -222,7 +215,7 @@ async def proxies_cmd(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
-    # Proxy loading - ONLY when /proxies command is used
+    # Proxy loading
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
@@ -235,30 +228,31 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking - for normal text or any document upload (combos.txt)
+    # Combo checking
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
-        content = message.text.replace("/check", "").strip()
+        content = message.text
 
-    # Extract ONLY email:password (ignore all other text/characters)
+    # STRICT CLEANING - ONLY email:password
     lines = []
     for raw in content.splitlines():
         raw = raw.strip()
-        if not raw:
+        if not raw or ':' not in raw:
             continue
-        if ':' in raw and '@' in raw:
+        # Take only email:password part, ignore everything after
+        if '@' in raw:
             part = raw.split(':', 1)
             if len(part) == 2 and '@' in part[0]:
-                email_part = part[0].strip()
-                pass_part = part[1].split()[0].strip()
-                lines.append(email_part + ":" + pass_part)
+                email = part[0].strip()
+                password = part[1].split()[0].strip()
+                lines.append(email + ":" + password)
 
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
+    await message.answer(f"🚀 Checking {len(lines)} combos...")
 
     for line in lines:
         try:
@@ -275,7 +269,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))   # Fast limit
+            await asyncio.sleep(1.5)   # Safe delay
 
         except:
             continue
