@@ -18,7 +18,7 @@ proxies = []
 stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0}
 
 # ================== RATE LIMITING CONTROL ==================
-RATE_DELAY = 0.5   # Fast check as requested
+RATE_DELAY = 1.8   # Default safe delay (you can change with /delay command)
 # ========================================================
 
 class CrunchyrollChecker:
@@ -303,3 +303,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+                
