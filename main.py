@@ -42,19 +42,10 @@ def crunchyroll_check(email: str, password: str):
             'user-agent': 'AppleCoreMedia/1.0.0'
         }
 
-        acc = session.get(
-            'https://beta-api.crunchyroll.com/accounts/v1/me',
-            headers=headers,
-            timeout=(5, 10)
-        ).json()
-
+        acc = session.get('https://beta-api.crunchyroll.com/accounts/v1/me', headers=headers, timeout=(5, 10)).json()
         external_id = acc.get('external_id')
 
-        sub = session.get(
-            f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}',
-            headers=headers,
-            timeout=(5, 10)
-        ).json()
+        sub = session.get(f'https://beta-api.crunchyroll.com/subs/v1/subscriptions/{external_id}', headers=headers, timeout=(5, 10)).json()
 
         is_active = sub.get('is_active', False)
         expiry = sub.get('next_renewal_date', 'N/A')
@@ -85,11 +76,7 @@ def extract_combos(text):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🔥 Crunchyroll Checker\n\n"
-        "Bot made by @Sudhakaran12\n\n"
-        "Send combos or .txt file"
-    )
+    await update.message.reply_text("🔥 Crunchyroll Checker\nBot made by @Sudhakaran12")
 
 
 async def process_combos(update, combos):
@@ -100,11 +87,9 @@ async def process_combos(update, combos):
 
     async def worker(email, password):
         async with semaphore:
-            res = await run_check(email, password)
-            return res
+            return await run_check(email, password)
 
-    tasks = [worker(e, p) for e, p in combos]
-    responses = await asyncio.gather(*tasks)
+    responses = await asyncio.gather(*[worker(e, p) for e, p in combos])
 
     hits = 0
     for res in responses:
@@ -161,9 +146,8 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
 
-    # FIXED LINE - split to avoid escaping issue
-    text_filter = filters.TEXT
-    text_filter = text_filter & \~filters.COMMAND
+    # Safe filter (no escaping issue)
+    text_filter = filters.TEXT & \~filters.COMMAND
     app.add_handler(MessageHandler(text_filter, handle_message))
 
     print("🚀 Bot Running...")
